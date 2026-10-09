@@ -12,7 +12,7 @@ Serve this directory over HTTP, then open `index.html`. Opening the file directl
 python3 -m http.server 8000
 ```
 
-The Cursor lights link opens the four color choices. The tuning controls save locally in the browser. Space pauses, R restarts, and H toggles the controls.
+The published page presents the artwork without the development control strip or a controls toggle. Hover and click interactions remain active. Space pauses and R replays the entrance. The four cursor color choices are available separately in `cursor-lights.html`.
 
 ## GitHub Pages
 

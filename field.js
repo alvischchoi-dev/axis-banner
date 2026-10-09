@@ -414,6 +414,7 @@ function toggleNotes(open = notes.hidden) {
   document.querySelector('#about').setAttribute('aria-expanded', String(open));
 }
 function toggleControls() {
+  if (document.body.classList.contains('banner-presentation')) return;
   const hidden = document.body.classList.toggle('artwork-only');
   document.querySelector('.controls').hidden = hidden;
   document.querySelector('#restore-controls').hidden = !hidden;

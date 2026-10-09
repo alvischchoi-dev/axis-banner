@@ -6,9 +6,9 @@
   <meta name="color-scheme" content="dark">
   <title>Axis — Sunrise Arc / Magnetic Field</title>
   <script>document.documentElement.classList.add('banner-motion', 'title-motion');</script>
-  <link rel="stylesheet" href="style.css?revision=background-first-entrance-1">
+  <link rel="stylesheet" href="style.css?revision=presentation-only-1">
 </head>
-<body>
+<body class="banner-presentation artwork-only">
   <main class="workbench">
     <figure class="artwork" aria-label="Axis desktop background motion study">
       <canvas id="field" aria-label="A luminous green and aqua sunrise arc opens into blue and deep indigo edges, with a small pale-yellow central accent. A bright circular star anchors smooth magnetic rays. Clicking places a rounded color gradient light that gently settles, brightens and becomes smaller and more transparent as it moves inward." role="img"></canvas>
@@ -22,7 +22,7 @@
       </div>
       <figcaption class="sr-only">An upper sunrise arc opens into a fixed luminous star and deeper blue edges. Slow movement gathers approaching light and fans departing lines away. The cursor light shares the background colors, expands when still, and becomes smaller and dimmer as movement speeds up. After leaving, color fades and the lines settle slowly. Clicked points retain the hover field and stay independent of cursor motion, while nearby light responds to both sources. Their pull gradually weakens during the inward journey.</figcaption>
     </figure>
-    <footer class="controls" aria-label="Motion study controls">
+    <footer class="controls" aria-label="Motion study controls" hidden inert>
       <div class="identity"><span class="name">Axis</span><span class="study">Sunrise arc · Magnetic field</span></div>
       <div class="flow" role="group" aria-label="Flow direction">
         <button type="button" data-flow="radiate" aria-pressed="false">Radiate</button>
@@ -87,10 +87,10 @@
       <div class="note-links"><a href="https://www.figma.com/slides/vfxOS4Y81QhAcyV0OcsYpU/AXIS-%E2%80%94-Brand---Design-Presentation?node-id=2-246" target="_blank" rel="noreferrer">Brand gradients ↗</a><a href="https://vimeo.com/153707670" target="_blank" rel="noreferrer">Motion reference ↗</a></div>
       <p class="shortcut">Space to pause · H to hide or show controls · R to restart</p>
     </aside>
-    <button type="button" id="restore-controls" hidden aria-label="Show motion study controls">Controls <span aria-hidden="true">↙</span></button>
+    <button type="button" id="restore-controls" hidden inert aria-label="Show motion study controls">Controls <span aria-hidden="true">↙</span></button>
     <span id="status" class="sr-only" role="status" aria-live="polite"></span>
   </main>
-  <script type="module" src="field.js?revision=faster-breathing-7"></script>
+  <script type="module" src="field.js?revision=presentation-only-1"></script>
   <script type="module" src="title-reveal.js?revision=title-then-subtitle-2"></script>
 </body>
 </html>
