@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Axis</title>
+  <rect width="64" height="64" rx="12" fill="#17203d"/>
+  <g fill="#fff" transform="translate(4.405 4) scale(.112)">
+    <ellipse cx="286.99" cy="379.3" rx="65.77" ry="131.67" transform="translate(-142.71 175.37) rotate(-27.5)"/>
+    <ellipse cx="375.12" cy="220.41" rx="117.65" ry="58.83"/>
+    <ellipse cx="288.13" cy="90.14" rx="103.39" ry="51.76" transform="translate(50.65 276.54) rotate(-55.5)"/>
+    <ellipse cx="145.76" cy="102.12" rx="44.45" ry="88.78" transform="translate(-30.69 78.84) rotate(-27.5)"/>
+    <ellipse cx="71.88" cy="218.49" rx="71.88" ry="35.94"/>
+    <ellipse cx="146.47" cy="305.47" rx="58.47" ry="29.11" transform="translate(-186.54 243.26) rotate(-53.8)"/>
+  </g>
+</svg>
