@@ -1,0 +1,92 @@
+@font-face {
+  font-family: "PP Fragment Sans";
+  src: url("PPFragment-SansRegular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Neue Montreal";
+  src: url("PPNeueMontreal-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+:root { color-scheme: dark; --ink: #eeeeee; --muted: #8c8c8c; --line: #292929; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: #000; color: var(--ink); }
+body, button, input, output { font-family: "Neue Montreal", sans-serif; font-size: 14px; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { color: inherit; font: inherit; border: 0; background: none; cursor: pointer; white-space: nowrap; }
+button:hover, a:hover { color: #fff; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid #c8c8c8; outline-offset: 5px; }
+[hidden] { display: none !important; }
+.workbench { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; }
+.artwork { position: relative; align-self: center; width: min(100vw, calc(max(180px, 100svh - var(--chrome-height, 340px)) * 16 / 9)); height: min(max(180px, 100svh - var(--chrome-height, 340px)), 56.25vw); margin: 0; overflow: hidden; container-type: inline-size; }
+canvas { display: block; width: 100%; height: 100%; background: #111f4b; }
+/* The user's split-title reference, adapted with the live Figma typefaces.
+   1920×1080 master: 72px side guides, 24px gutters and 12×126px columns.
+   Headline occupies columns 1–5 and 8–12, optically centered on the star.
+   Supporting copy shares the left guide and a 72px bottom inset. */
+.banner-overlay { position: absolute; inset: 0; z-index: 1; color: #fff; pointer-events: none; }
+.banner-logo { position: absolute; top: 3.3333333cqw; left: 3.75cqw; display: block; width: 6.6666667cqw; height: auto; filter: brightness(0) invert(1); user-select: none; }
+.banner-title { position: absolute; top: 49%; left: 3.75cqw; right: 3.75cqw; transform: translateY(-50%); display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.25cqw; align-items: baseline; margin: 0; font-family: "PP Fragment Sans", sans-serif; font-size: 4.8958333cqw; font-weight: 400; font-synthesis: none; line-height: 1; letter-spacing: -.03em; }
+.banner-title-start { grid-column: 1 / span 5; }
+.banner-title-end { grid-column: 8 / span 5; text-align: right; }
+.banner-description { position: absolute; left: 3.75cqw; bottom: 3.75cqw; width: 36.25cqw; margin: 0; font-family: "Neue Montreal", sans-serif; font-size: 1.5625cqw; font-weight: 400; font-synthesis: none; line-height: 1.2; letter-spacing: 0; }
+.banner-title > span, .banner-description > span { display: block; white-space: nowrap; }
+/* Mask bleed preserves the Fragment descenders and the existing title position. */
+.title-word-mask { display: inline-block; overflow: hidden; vertical-align: top; padding: .12em .035em .18em; margin: -.12em -.035em -.18em; }
+.title-word { display: block; }
+.title-motion .title-word { transform: translate3d(0, 145%, 0); }
+/* Applied in the head before first paint, so loading cannot flash the scene. */
+.banner-motion #field, .banner-motion .banner-logo, .banner-motion .banner-description { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .title-motion .title-word { transform: none; }
+  .banner-motion #field, .banner-motion .banner-logo, .banner-motion .banner-description { opacity: 1; }
+}
+.controls { min-height: 80px; padding: 20px 32px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; background: #080808; }
+.identity { display: flex; align-items: baseline; gap: 20px; margin-right: auto; }
+.name { font-size: 22px; letter-spacing: -.04em; }
+.study { color: var(--muted); }
+.flow, .actions { display: flex; align-items: center; gap: 24px; }
+.flow button { padding: 8px 0; color: #767676; }
+.flow button.selected { color: var(--ink); box-shadow: 0 1px 0 currentColor; }
+.tempo { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+.tempo input { width: 92px; height: 2px; cursor: pointer; accent-color: #dedede; }
+.tempo output { width: 40px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.actions { gap: 20px; }
+#hover { color: #bcbcbc; padding: 8px 0; }
+#hover[aria-pressed="false"] { color: #747474; }
+.actions button { padding: 8px 0; color: #bcbcbc; }
+.actions button span { margin-left: 6px; }
+.tuning { padding: 20px 32px 24px; border-top: 1px solid var(--line); background: #0b0b0b; }
+.tuning-head, .tuning-grid { max-width: 1400px; margin-inline: auto; }
+.tuning-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.tuning-head h1 { font-size: 17px; font-weight: 400; letter-spacing: -.025em; margin: 0; }
+.tuning-head p { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+#reset-settings { color: #bcbcbc; padding: 8px 0; font-size: 12px; }
+#reset-settings span { margin-left: 6px; }
+.tuning-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 40px; }
+.tune-slider { display: grid; gap: 5px; }
+.tune-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tune-label output { color: #ababab; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tune-slider input { width: 100%; height: 16px; margin: 0; accent-color: #dedede; cursor: pointer; }
+.tune-help { color: #888; font-size: 12px; line-height: 1.3; }
+.notes { position: fixed; z-index: 3; right: 32px; bottom: calc(var(--chrome-height, 80px) + 24px); max-width: 450px; max-height: calc(100svh - 48px); overflow-y: auto; padding: 28px; border: 1px solid #363636; background: #101010; box-shadow: 0 16px 64px #000b; }
+.notes-title { display: flex; align-items: start; justify-content: space-between; gap: 24px; }
+.notes h1 { margin: 0 0 20px; font-size: 24px; font-weight: 400; letter-spacing: -.025em; }
+.notes p { margin: 0 0 16px; color: #bcbcbc; line-height: 1.5; }
+.notes .boundary { color: #909090; }
+.notes-title button { font-size: 24px; padding: 0 0 10px; line-height: 1; }
+.note-links { display: flex; flex-wrap: wrap; gap: 16px 24px; padding: 8px 0 20px; }
+.note-links a { color: #dedede; text-decoration: none; }
+.notes .shortcut { font-size: 12px; color: #747474; margin: 0; }
+#restore-controls { position: fixed; bottom: 20px; right: 24px; color: #858585; padding: 8px; font-size: 12px; }
+body.artwork-only .artwork { width: min(100vw, calc(100svh * 16 / 9)); height: min(100svh, 56.25vw); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 1100px) { .controls { gap: 16px 24px; padding-inline: 24px; } .identity { display: grid; gap: 3px; } .actions { gap: 16px; } .study { font-size: 12px; } .tuning { padding-inline: 24px; } .tuning-grid { column-gap: 28px; } }
+@media (max-width: 760px) { .controls { gap: 12px 24px; padding: 16px 20px; } .identity { min-width: 50%; } .actions { margin-left: auto; gap: 20px; } .notes { right: 20px; left: 20px; max-width: none; } .tuning { padding-inline: 20px; } .tuning-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; } }
+@media (max-width: 460px) { .tuning-grid { grid-template-columns: 1fr; } .actions { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+.actions > a {color:#bcbcbc;font-size:14px;text-decoration:none;padding:8px 0;white-space:nowrap;}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Axis — Sunrise Arc / Magnetic Field</title>
+  <script>document.documentElement.classList.add('banner-motion', 'title-motion');</script>
+  <link rel="stylesheet" href="style.css?revision=background-first-entrance-1">
+</head>
+<body>
+  <main class="workbench">
+    <figure class="artwork" aria-label="Axis desktop background motion study">
+      <canvas id="field" aria-label="A luminous green and aqua sunrise arc opens into blue and deep indigo edges, with a small pale-yellow central accent. A bright circular star anchors smooth magnetic rays. Clicking places a rounded color gradient light that gently settles, brightens and becomes smaller and more transparent as it moves inward." role="img"></canvas>
+      <div class="banner-overlay">
+        <img class="banner-logo" src="axis-full-logo.svg" alt="Axis" draggable="false">
+        <h1 class="banner-title" aria-label="A New Center of Financial Gravity">
+          <span class="banner-title-start" aria-hidden="true"><span class="title-word-mask"><span class="title-word">A</span></span> <span class="title-word-mask"><span class="title-word">New</span></span> <span class="title-word-mask"><span class="title-word">Center</span></span> <span class="title-word-mask"><span class="title-word">of</span></span></span>
+          <span class="banner-title-end" aria-hidden="true"><span class="title-word-mask"><span class="title-word">Financial</span></span> <span class="title-word-mask"><span class="title-word">Gravity</span></span></span>
+        </h1>
+        <p class="banner-description"><span>Axis is the decentralized force pulling</span><span>the future of investing into focus.</span></p>
+      </div>
+      <figcaption class="sr-only">An upper sunrise arc opens into a fixed luminous star and deeper blue edges. Slow movement gathers approaching light and fans departing lines away. The cursor light shares the background colors, expands when still, and becomes smaller and dimmer as movement speeds up. After leaving, color fades and the lines settle slowly. Clicked points retain the hover field and stay independent of cursor motion, while nearby light responds to both sources. Their pull gradually weakens during the inward journey.</figcaption>
+    </figure>
+    <footer class="controls" aria-label="Motion study controls">
+      <div class="identity"><span class="name">Axis</span><span class="study">Sunrise arc · Magnetic field</span></div>
+      <div class="flow" role="group" aria-label="Flow direction">
+        <button type="button" data-flow="radiate" aria-pressed="false">Radiate</button>
+        <button type="button" class="selected" data-flow="converge" aria-pressed="true">Converge</button>
+      </div>
+      <label class="tempo" for="tempo"><span>Tempo</span><input id="tempo" type="range" min="0.5" max="5" value="3" step="0.05"><output id="tempo-value" for="tempo">3.00×</output></label>
+      <button type="button" id="hover" aria-pressed="true" aria-label="Disable cursor gravity">Hover on</button>
+      <div class="actions">
+        <button type="button" id="pause" aria-label="Pause animation">Pause</button>
+        <button type="button" id="restart">Restart</button>
+        <button type="button" id="artwork-only" aria-label="Hide controls and view artwork">View artwork <span aria-hidden="true">↗</span></button>
+        <button type="button" id="tune-toggle" aria-expanded="false" aria-controls="tuning">Fine tune <span aria-hidden="true">+</span></button>
+        <a href="cursor-lights.html" target="_blank" rel="noreferrer">Cursor lights ↗</a>
+        <button type="button" id="about" aria-expanded="false" aria-controls="notes">Notes <span aria-hidden="true">+</span></button>
+      </div>
+    </footer>
+    <section id="tuning" class="tuning" aria-labelledby="tuning-title" hidden>
+      <div class="tuning-head">
+        <div><h1 id="tuning-title">Fine tune</h1><p id="tuning-status">Changes save in this browser</p></div>
+        <button type="button" id="reset-settings">Reset defaults <span aria-hidden="true">↺</span></button>
+      </div>
+      <div class="tuning-grid">
+        <label class="tune-slider" for="tune-density">
+          <span class="tune-label"><span>Ray count</span><output id="tune-density-value" for="tune-density">1200</output></span>
+          <input id="tune-density" data-setting="density" type="range" min="400" max="4000" step="50" value="1200" aria-describedby="density-help">
+          <span class="tune-help" id="density-help">More rays, or more open space.</span>
+        </label>
+        <label class="tune-slider" for="tune-length">
+          <span class="tune-label"><span>Ray length</span><output id="tune-length-value" for="tune-length">100%</output></span>
+          <input id="tune-length" data-setting="rayLength" type="range" min="0.5" max="1.8" step="0.05" value="1" aria-describedby="length-help">
+          <span class="tune-help" id="length-help">Short sparks to long luminous streaks.</span>
+        </label>
+        <label class="tune-slider" for="tune-strength">
+          <span class="tune-label"><span>Pull strength</span><output id="tune-strength-value" for="tune-strength">48%</output></span>
+          <input id="tune-strength" data-setting="pullStrength" type="range" min="0.15" max="0.85" step="0.01" value="0.48" aria-describedby="strength-help">
+          <span class="tune-help" id="strength-help">How strongly nearby rays gather.</span>
+        </label>
+        <label class="tune-slider" for="tune-reach">
+          <span class="tune-label"><span>Pull reach</span><output id="tune-reach-value" for="tune-reach">42% of height</output></span>
+          <input id="tune-reach" data-setting="reach" type="range" min="0.35" max="1.25" step="0.01" value="0.83" aria-describedby="reach-help">
+          <span class="tune-help" id="reach-help">The area around the cursor that reacts.</span>
+        </label>
+        <label class="tune-slider" for="tune-reaction">
+          <span class="tune-label"><span>Reaction speed</span><output id="tune-reaction-value" for="tune-reaction">65%</output></span>
+          <input id="tune-reaction" data-setting="reaction" type="range" min="0.1" max="1" step="0.05" value="0.65" aria-describedby="reaction-help">
+          <span class="tune-help" id="reaction-help">Higher reacts sooner, with momentum.</span>
+        </label>
+        <label class="tune-slider" for="tune-contrast">
+          <span class="tune-label"><span>Speed contrast</span><output id="tune-contrast-value" for="tune-contrast">98%</output></span>
+          <input id="tune-contrast" data-setting="speedContrast" type="range" min="0" max="1" step="0.01" value="0.98" aria-describedby="contrast-help">
+          <span class="tune-help" id="contrast-help">Higher weakens the pull during fast passes.</span>
+        </label>
+      </div>
+    </section>
+    <aside id="notes" class="notes" hidden>
+      <div class="notes-title"><h1>Sunrise arc. Magnetic light.</h1><button type="button" id="close-notes" aria-label="Close notes">×</button></div>
+      <p>The latest Figma gradient opens from black and deep blue into blue, aqua, green and a small pale-yellow accent. Several soft color fields form the sunrise arc. Fine tonal grain drifts gently inward above the gradient and below the luminous rays and breathing cursor lights. The hues stay near their original positions.</p>
+      <p>Move slowly to attract approaching light. After it passes the cursor, the field fans outward. Fast passes exert little pull; slowing down lets the attraction build gently. The light carries its motion through a change of direction, then settles slowly. Linger in one place to deepen the local pull; it fades more slowly after a longer hover.</p>
+      <p>The surrounding field stays anchored, with no accumulated cursor trails. Converge draws inward; Radiate reverses the flow.</p>
+      <p>Click to place the hover field. It keeps the same approach attraction and departure opening. The placed point is independent of cursor motion; overlapping sources combine in the light geometry. Their pull gradually fades as they drift into the star. Pause holds the points in place; Restart clears them.</p>
+      <p class="boundary">Four circular inner color gradients share the selected Reference rim and close glow. Their bases are aqua, mint, blue and green, with a rose reflection capped at 7% in one option. Their gradients rotate once every six seconds. Faster movement makes the cursor smaller and dimmer. Clicking cycles to the next light and gives nearby lines a tiny settling response. Placed lights become smaller and brighter while fading into the star over approximately 5–8 seconds.</p>
+      <div class="note-links"><a href="https://www.figma.com/slides/vfxOS4Y81QhAcyV0OcsYpU/AXIS-%E2%80%94-Brand---Design-Presentation?node-id=2-246" target="_blank" rel="noreferrer">Brand gradients ↗</a><a href="https://vimeo.com/153707670" target="_blank" rel="noreferrer">Motion reference ↗</a></div>
+      <p class="shortcut">Space to pause · H to hide or show controls · R to restart</p>
+    </aside>
+    <button type="button" id="restore-controls" hidden aria-label="Show motion study controls">Controls <span aria-hidden="true">↙</span></button>
+    <span id="status" class="sr-only" role="status" aria-live="polite"></span>
+  </main>
+  <script type="module" src="field.js?revision=faster-breathing-7"></script>
+  <script type="module" src="title-reveal.js?revision=title-then-subtitle-2"></script>
+</body>
+</html>
