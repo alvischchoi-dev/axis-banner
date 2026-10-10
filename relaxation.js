@@ -1,4 +1,4 @@
-import { responseKernel, settleNode } from './inertia.js?revision=2517ad9ee71f';
+import { responseKernel, settleNode } from './inertia.js?revision=d6dc44b14a08';
 
 export const RETURN_RESPONSE = Object.freeze({
   // Faster attraction uses a lower return ratio to retain the prior unwind.

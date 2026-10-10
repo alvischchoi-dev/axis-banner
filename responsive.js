@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=2517ad9ee71f';
+import { restingFieldColor } from './color.js?revision=d6dc44b14a08';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -96,6 +96,18 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
   };
 }
 
+// Keep UI geometry in the dynamic viewport, but paint the same scene into
+// the larger viewport and safe-area regions that Safari can reveal.
+export function drawingBounds(layout, largeViewportHeight = layout.height, safe = {}) {
+  const extension = Math.max(0, largeViewportHeight - layout.height)
+    + (safe.top || 0) + (safe.bottom || 0);
+  return {
+    renderHeight: layout.height + extension,
+    drawingBleedTop: extension * .49,
+    drawingBleedBottom: extension * .51,
+  };
+}
+
 let current;
 const subscribers = new Set();
 let started = false;
@@ -115,6 +127,8 @@ function startLayout() {
   const paint = document.createElement('canvas').getContext('2d');
   const probe = document.createElement('span');
   probe.className = 'layout-rem-probe'; probe.setAttribute('aria-hidden', 'true'); artwork.append(probe);
+  const viewportProbe = document.createElement('span');
+  viewportProbe.className = 'layout-viewport-probe'; viewportProbe.setAttribute('aria-hidden', 'true'); artwork.append(viewportProbe);
   let scheduled = 0;
   const textWidth = (text, size, family, tracking = 0) => {
     if (!paint) return text.length * size * .5;
@@ -155,7 +169,8 @@ function startLayout() {
       measureTitle: (text, size) => textWidth(text, size, 'PP Fragment Sans', -.03),
       measureCopy: (text, size) => textWidth(text, size, 'Neue Montreal'),
     });
-    const values = { 'hero-min-height': layout.height, 'guide-left': layout.left, 'guide-right': layout.right,
+    Object.assign(layout, drawingBounds(layout, viewportProbe.getBoundingClientRect().height, safe));
+    const values = { 'drawing-bleed-top': layout.drawingBleedTop, 'drawing-bleed-bottom': layout.drawingBleedBottom, 'hero-min-height': layout.height, 'guide-left': layout.left, 'guide-right': layout.right,
       'guide-top': layout.top, 'guide-bottom': layout.bottom, 'grid-gutter': layout.gutter,
       'headline-size': layout.titleSize, 'copy-size': layout.copySize, 'logo-width': layout.logoWidth,
       'copy-width': layout.descriptionWidth, 'title-start-top': layout.titleStartTop,
@@ -185,6 +200,7 @@ function startLayout() {
   const schedule = () => { if (!scheduled) scheduled = requestAnimationFrame(measure); };
   new ResizeObserver(schedule).observe(artwork);
   new ResizeObserver(schedule).observe(probe);
+  new ResizeObserver(schedule).observe(viewportProbe);
   window.addEventListener('resize', schedule, { passive: true });
   window.visualViewport?.addEventListener('resize', schedule, { passive: true });
   document.fonts?.addEventListener('loadingdone', schedule);

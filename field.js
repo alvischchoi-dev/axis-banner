@@ -1,20 +1,20 @@
-import { MODEL, seededRandom } from './physics.js?revision=2517ad9ee71f';
-import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=2517ad9ee71f';
-import { buildTrajectory, pointAtTime } from './trajectories.js?revision=2517ad9ee71f';
-import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=2517ad9ee71f';
-import { streakHead, streakPhase } from './streaks.js?revision=2517ad9ee71f';
-import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=2517ad9ee71f';
-import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=2517ad9ee71f';
-import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=2517ad9ee71f';
+import { MODEL, seededRandom } from './physics.js?revision=d6dc44b14a08';
+import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=d6dc44b14a08';
+import { buildTrajectory, pointAtTime } from './trajectories.js?revision=d6dc44b14a08';
+import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=d6dc44b14a08';
+import { streakHead, streakPhase } from './streaks.js?revision=d6dc44b14a08';
+import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=d6dc44b14a08';
+import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=d6dc44b14a08';
+import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=d6dc44b14a08';
 
-import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime, visibleEndTime } from './curves.js?revision=2517ad9ee71f';
-import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=2517ad9ee71f';
-import { PlacementResponse } from './placement.js?revision=2517ad9ee71f';
-import { observeLayout, bufferDimensions } from './responsive.js?revision=2517ad9ee71f';
-import { rebaseRay, rebaseFocus } from './rebase.js?revision=2517ad9ee71f';
-import { TapGesture } from './input.js?revision=2517ad9ee71f';
-import { RenderQuality } from './quality.js?revision=2517ad9ee71f';
-import { supportBounds } from './support.js?revision=2517ad9ee71f';
+import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime, visibleEndTime } from './curves.js?revision=d6dc44b14a08';
+import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=d6dc44b14a08';
+import { PlacementResponse } from './placement.js?revision=d6dc44b14a08';
+import { observeLayout, bufferDimensions } from './responsive.js?revision=d6dc44b14a08';
+import { rebaseRay, rebaseFocus } from './rebase.js?revision=d6dc44b14a08';
+import { TapGesture } from './input.js?revision=d6dc44b14a08';
+import { RenderQuality } from './quality.js?revision=d6dc44b14a08';
+import { supportBounds } from './support.js?revision=d6dc44b14a08';
 
 const canvas = document.querySelector('#field');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -175,17 +175,19 @@ function rebuildBins() {
 function resize(nextLayout = layout) {
   if (!nextLayout) return;
   const previous = layout, previousProfiles = profiles;
+  const previousWidth = width, previousHeight = height, previousScale = scale;
   const oldGuides = lightDrops.items.map(drop => lightDrops.guide(drop, carrierAtTime));
   layout = nextLayout;
-  width = layout.width; height = layout.height; scale = layout.scale; outerRadius = layout.outerRadius;
+  width = layout.width; height = layout.renderHeight ?? layout.height; scale = layout.scale;
+  outerRadius = Math.hypot(width / (scale * 2), height / (scale * 2)) * 2.12;
   const buffer = bufferDimensions(width, height, devicePixelRatio, quality.pixelCap);
-  const dimensionsChanged = !previous || previous.width !== width || previous.height !== height;
+  const dimensionsChanged = !previous || previousWidth !== width || previousHeight !== height || previousScale !== scale;
   const bufferChanged = canvas.width !== buffer.width || canvas.height !== buffer.height || ratio !== buffer.ratio;
   ratio = buffer.ratio;
   if (!dimensionsChanged && !bufferChanged) return;
   resizeCount++;
   if (dimensionsChanged && rayPool.length) {
-    const xFactor = width / previous.width * previous.scale / scale, yFactor = height / previous.height * previous.scale / scale;
+    const xFactor = width / previousWidth * previousScale / scale, yFactor = height / previousHeight * previousScale / scale;
     prepareProfiles();
     const durationRatios = rayPool.map(ray => profiles[ray.profile].duration / previousProfiles[ray.profile].duration);
     for (const ray of rayPool) rebaseRay(ray, previousProfiles[ray.profile], profiles[ray.profile], xFactor, yFactor);
@@ -407,7 +409,7 @@ function reportState(frameMs) {
   canvas.dataset.renderTimings = JSON.stringify(renderTimings);
   Object.assign(canvas.dataset, {
     flow, rays: String(sampledCount), requestedRays: String(settings.density), allocatedRays: String(rayPool.length), continuousPaths: String(sampledCount), fieldCenters: String(1 + dropWells.length), historyTrails: '0', inertia: 'delayed-momentum', visualModel: 'approved-magnetic-filaments', geometry:'C1-cubic-curves', pullModel:'previous-hover-force',
-    layout: layout.mode, sceneWidth: width.toFixed(1), sceneHeight: height.toFixed(1), sceneScale: scale.toFixed(3), starX: screenX(0).toFixed(2), starY: screenY(0).toFixed(2), referenceExtent: layout.referenceExtent.toFixed(1),
+    layout: layout.mode, sceneWidth: width.toFixed(1), sceneHeight: height.toFixed(1), sceneScale: scale.toFixed(3), starX: screenX(0).toFixed(2), starY: screenY(0).toFixed(2), referenceExtent: layout.referenceExtent.toFixed(1), drawingBleedTop: String(layout.drawingBleedTop || 0), drawingBleedBottom: String(layout.drawingBleedBottom || 0), uiHeight: String(layout.height),
     pixelRatio: ratio.toFixed(3), bufferPixels: String(canvas.width * canvas.height), qualityLevel: String(quality.level), samplingFade: String(samplingAge < .5),
     measuredFps: observedFps.toFixed(1), resizeCount: String(resizeCount), leadRayPhase: rayPool[0].phase.toFixed(8), orbClock: orbSeconds.toFixed(4),
     cursorPolarity: 'approach-attract-departure-repel', broadBloom: 'off', cursorHaze: 'off', coreStyle: 'white-hot-star', coreBreathingScale:breathingScale(orbSeconds,CORE_BREATH_AMOUNT).toFixed(4), centerMask: 'off',
