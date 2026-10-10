@@ -5,6 +5,7 @@ export class PlacementResponse{
   constructor(){this.reset();}
   reset(){this.items=[];}
   add(x,y){this.items.push({x,y,age:0,amplitude:0});if(this.items.length>8)this.items.shift();}
+  rebase(xFactor,yFactor){for(const item of this.items){item.x*=xFactor;item.y*=yFactor;}}
   update(dt){for(const item of this.items){item.age+=dt;item.amplitude=placementWave(item.age);}this.items=this.items.filter(item=>item.age<1.8);}
   apply(target,x,y){
     let dx=0,dy=0;

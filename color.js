@@ -101,12 +101,12 @@ for (let sample = 0; sample < fieldRampSize; sample++) {
 // Scale both coordinates continuously instead of adding a vignette boundary.
 const INNER_LIGHT_REACH = .82;
 
-function fieldDistance(x, y, width, height) {
-  const dy = y / height - .49;
+function fieldDistance(x, y, width, height, extent = height) {
+  const dy = (y - height * .49) / extent;
   // The asymmetric dome varies continuously through its equator as well.
   // A broad tanh avoids the former squeezed band just below the star.
   const verticalReach = .64 - .24 * Math.tanh(dy / .18);
-  return Math.hypot((x - width * .5) / (height * .76), dy / verticalReach) / INNER_LIGHT_REACH;
+  return Math.hypot((x - width * .5) / (extent * .76), dy / verticalReach) / INNER_LIGHT_REACH;
 }
 
 function fieldColor(distance) {
@@ -120,9 +120,9 @@ const mintTint = mint.map(value => value * .89);
 const aquaTint = aqua.map(value => value * .89);
 const blueTint = blue.map(value => value * .85);
 
-export function backgroundLayerWeights(x, y, width, height) {
-  const nx = (x - width * .5) / height / INNER_LIGHT_REACH, ny = (y / height - .49) / INNER_LIGHT_REACH;
-  const distance = fieldDistance(x, y, width, height);
+export function backgroundLayerWeights(x, y, width, height, extent = height) {
+  const nx = (x - width * .5) / extent / INNER_LIGHT_REACH, ny = (y - height * .49) / extent / INNER_LIGHT_REACH;
+  const distance = fieldDistance(x, y, width, height, extent);
   const gaussian = (cx, cy, rx, ry) => Math.exp(-(((nx - cx) / rx) ** 2 + ((ny - cy) / ry) ** 2));
   return {
     distance,
@@ -153,8 +153,8 @@ function inwardExposure(weights, seconds) {
   return 1 + weights.motion * Math.sin(weights.distance * 4.3 + seconds * Math.PI * 2 / BACKGROUND_LOOP_SECONDS);
 }
 
-export function restingFieldColor(x, y, width, height, seconds = 0) {
-  const weights = backgroundLayerWeights(x, y, width, height);
+export function restingFieldColor(x, y, width, height, seconds = 0, extent = height) {
+  const weights = backgroundLayerWeights(x, y, width, height, extent);
   const exposure = inwardExposure(weights, seconds);
   return anchoredFieldColor(weights).map(value => Math.round(value * exposure));
 }
@@ -302,11 +302,14 @@ export function createColorField() {
   const resting = document.createElement('canvas');
   const sky = resting.getContext('2d');
   const localField = document.createElement('canvas');
-  const localSize = 112, halfLocal = localSize / 2;
+  const localSize = 64, halfLocal = localSize / 2;
   localField.width = localField.height = localSize;
   const localPaint = localField.getContext('2d');
   const localPixels = localPaint.createImageData(localSize, localSize);
   const localShape = new Float32Array(localSize * localSize * 6);
+  const localBasis = new Float32Array(localSize * localSize * 3);
+  const localPhase = new Float32Array(localSize * localSize * 2);
+  let localKey;
   for (let py = 0; py < localSize; py++) for (let px = 0; px < localSize; px++) {
     const nx = (px + .5 - halfLocal) / halfLocal, ny = (py + .5 - halfLocal) / halfLocal;
     const distance = Math.hypot(nx, ny), index = (py * localSize + px) * 6;
@@ -316,7 +319,7 @@ export function createColorField() {
   const light = lightLayer.getContext('2d');
   const grainLayer = document.createElement('canvas');
   const grainCompose = grainLayer.getContext('2d');
-  let restingRay, sceneWidth, sceneHeight, grainPatterns, grainPixelRatio, restingPixels, backgroundBasis, backgroundPhase, lastBackgroundSeconds;
+  let restingRay, sceneWidth, sceneHeight, referenceExtent, grainPatterns, grainPixelRatio, restingPixels, backgroundBasis, backgroundPhase, lastBackgroundSeconds;
   function paintGrain(ctx, width, height, seconds, flow) {
     // Two fine textures drift toward the fixed star. The tiny contraction
     // keeps grains within 1% of a device pixel, rather than stretching
@@ -352,28 +355,30 @@ export function createColorField() {
     ctx.restore();
   }
   return {
-    resize(ctx, width, height) {
-      sceneWidth = width; sceneHeight = height;
+    resize(ctx, width, height, layout = {}) {
+      sceneWidth = width; sceneHeight = height; referenceExtent = layout.referenceExtent || height;
       // Broad gradients need little spatial detail. Cache their color and
       // loop coefficients once, then update only a scalar exposure per pixel.
       // Fine grain uses a separate native-resolution texture below.
-      resting.width = 384;
-      resting.height = Math.max(1, Math.round(384 * height / width));
+      // Bound the cache on tall windows too; colors remain circular in scene space.
+      resting.width = Math.max(1, Math.round(384 * width / Math.max(width, height)));
+      resting.height = Math.max(1, Math.round(384 * height / Math.max(width, height)));
       restingPixels = sky.createImageData(resting.width, resting.height);
       backgroundBasis = new Float32Array(resting.width * resting.height * 3);
       backgroundPhase = new Float32Array(resting.width * resting.height * 2);
       for (let py = 0; py < resting.height; py++) for (let px = 0; px < resting.width; px++) {
-        const weights = backgroundLayerWeights((px + .5) * width / resting.width, (py + .5) * height / resting.height, width, height);
+        const weights = backgroundLayerWeights((px + .5) * width / resting.width, (py + .5) * height / resting.height, width, height, referenceExtent);
         const pixel = py * resting.width + px, phase = weights.distance * 4.3;
         backgroundBasis.set(anchoredFieldColor(weights), pixel * 3);
         backgroundPhase[pixel * 2] = weights.motion * Math.sin(phase);
         backgroundPhase[pixel * 2 + 1] = weights.motion * Math.cos(phase);
       }
       lastBackgroundSeconds = undefined;
+      localKey = undefined;
       grainLayer.width = ctx.canvas.width;
       grainLayer.height = ctx.canvas.height;
       grainCompose.setTransform(ctx.getTransform());
-      grainPixelRatio = Math.max(1, Math.abs(ctx.getTransform().a));
+      grainPixelRatio = Math.abs(ctx.getTransform().a);
       grainPatterns = grain.map(surface => grainCompose.createPattern(surface, 'repeat'));
       const x = width * .5, y = height * .49;
       const radius = Math.hypot(width * .5, height * .51) * 1.18;
@@ -406,6 +411,10 @@ export function createColorField() {
       const radius = cursorColorRadius(spot.radius, spot.size);
       const angle = Math.atan2(spot.y - spot.originY, spot.x - spot.originX);
       const cos = Math.cos(angle), sin = Math.sin(angle);
+      // Rounded colors are broad. Reuse their spatial recipe while the
+      // pointer rests; only the smooth exposure clock changes each frame.
+      const key = `${Math.round(spot.x * 2)},${Math.round(spot.y * 2)},${Math.round(radius * 2)},${spot.flow}`;
+      if (localKey !== key) {
       for (let pixel = 0; pixel < localSize * localSize; pixel++) {
         const shape = pixel * 6, index = pixel * 4;
         if (!localShape[shape + 4]) { localPixels.data[index + 3] = 0; continue; }
@@ -417,19 +426,27 @@ export function createColorField() {
         const x = spot.x + nx * radius, y = spot.y + ny * radius;
         // Lift the same background progression at this scene coordinate.
         // There is no independent blue-to-white disk or additive wash.
-        const weights = backgroundLayerWeights(x, y, sceneWidth, sceneHeight);
+        const weights = backgroundLayerWeights(x, y, sceneWidth, sceneHeight, referenceExtent);
         // Gather more of the scene's mint and aqua near the cursor, then
         // ease continuously into the unchanged surrounding color field.
         weights.distance /= 1 + 1.8 * localShape[shape + 5];
-        const color = anchoredFieldColor(weights).map(value => value * inwardExposure(weights, seconds));
-        const lit = mix(color, [253, 255, 253], peak * .99);
-        localPixels.data[index] = lit[0];
-        localPixels.data[index + 1] = lit[1];
-        localPixels.data[index + 2] = lit[2];
-        localPixels.data[index + 3] = Math.round(255 * spot.exposure * weight);
+        localBasis.set(anchoredFieldColor(weights), pixel * 3);
+        localPhase[pixel * 2] = weights.motion * Math.sin(weights.distance * 4.3);
+        localPhase[pixel * 2 + 1] = weights.motion * Math.cos(weights.distance * 4.3);
+        localPixels.data[index + 3] = Math.round(255 * weight);
+      }
+        localKey = key;
+      }
+      const phase = seconds * Math.PI * 2 / BACKGROUND_LOOP_SECONDS, pulseSin = Math.sin(phase), pulseCos = Math.cos(phase);
+      for (let pixel = 0; pixel < localSize * localSize; pixel++) {
+        const exposure = 1 + localPhase[pixel * 2] * pulseCos + localPhase[pixel * 2 + 1] * pulseSin;
+        const white = localShape[pixel * 6 + 3] * .99, index = pixel * 4;
+        for (let channel = 0; channel < 3; channel++) localPixels.data[index + channel] = Math.round(localBasis[pixel * 3 + channel] * exposure * (1 - white) + (channel === 1 ? 255 : 253) * white);
       }
       localPaint.putImageData(localPixels, 0, 0);
+      ctx.save(); ctx.globalAlpha = spot.exposure;
       ctx.drawImage(localField, spot.x - radius, spot.y - radius, radius * 2, radius * 2);
+      ctx.restore();
       paintGrain(ctx, width, height, seconds, spot.flow);
     },
     tintRays(ctx, width, height, spot, extraSpots = []) {

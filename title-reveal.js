@@ -5,6 +5,7 @@ const words = [...title.querySelectorAll('.title-word')];
 const field = document.querySelector('#field');
 const artwork = document.querySelector('.artwork');
 const logo = document.querySelector('.banner-logo');
+const contact = document.querySelector('.banner-contact');
 const description = document.querySelector('.banner-description');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -41,7 +42,7 @@ function syncPlayback() {
 
 function replay() {
   if (!sceneReady) return;
-  if (reducedMotion.matches) { showStatic(); return; }
+  if (reducedMotion.matches || typeof title.animate !== 'function') { showStatic(); return; }
   const currentSequence = ++sequence;
   animations.forEach(animation => animation.cancel());
   document.documentElement.classList.add('banner-motion', 'title-motion');
@@ -61,9 +62,9 @@ function replay() {
   ], { duration: DURATION, delay: LEAD + index * STAGGER, easing: EASING }));
   animations = [
     background,
-    animate(logo, [{ opacity: 0 }, { opacity: 1 }], {
+    ...[logo, contact].filter(Boolean).map(element => animate(element, [{ opacity: 0 }, { opacity: 1 }], {
       duration: 500, delay: LEAD, easing: FADE_EASING,
-    }),
+    })),
     animate(description, [{ opacity: 0 }, { opacity: 1 }], {
       duration: 700, delay: DESCRIPTION_LEAD, easing: FADE_EASING,
     }),
@@ -103,8 +104,9 @@ if (reducedMotion.matches) showStatic();
 // reportState writes rays only after paintFrame: do not fade an empty canvas.
 async function waitForFieldPaint() {
   await new Promise(resolve => {
+    const deadline = performance.now() + 6000;
     function check() {
-      if (field.dataset.rays && field.width > 0 && field.height > 0) resolve();
+      if ((field.dataset.rays && field.width > 0 && field.height > 0) || performance.now() > deadline || artwork.dataset.renderer === 'fallback') resolve();
       else requestAnimationFrame(check);
     }
     check();
@@ -112,11 +114,13 @@ async function waitForFieldPaint() {
   // RAF waits for a visible document, including a page opened in the background.
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
-await Promise.all([
+await Promise.race([Promise.all([
   document.fonts.load('400 1em "PP Fragment Sans"').catch(() => {}),
   document.fonts.load('400 1em "Neue Montreal"').catch(() => {}),
   logo.decode().catch(() => {}),
   waitForFieldPaint(),
-]);
+]), new Promise(resolve => setTimeout(resolve, 6500))]);
 sceneReady = true;
-replay();
+clearTimeout(window.axisEntranceTimeout);
+if (!field.dataset.ready || document.documentElement.dataset.entranceFallback === 'true') showStatic();
+else replay();

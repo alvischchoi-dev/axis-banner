@@ -1,19 +1,25 @@
-import { MODEL, seededRandom } from './physics.js';
-import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=gentler-moving-field';
-import { buildTrajectory, pointAtTime } from './trajectories.js';
-import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=gentler-moving-field';
-import { streakHead, streakPhase } from './streaks.js';
-import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=gentler-moving-field';
-import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=fine-inward-grain-2';
-import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=bright-inward-1';
+import { MODEL, seededRandom } from './physics.js?revision=a0fba0e7e0bd';
+import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=a0fba0e7e0bd';
+import { buildTrajectory, pointAtTime } from './trajectories.js?revision=a0fba0e7e0bd';
+import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=a0fba0e7e0bd';
+import { streakHead, streakPhase } from './streaks.js?revision=a0fba0e7e0bd';
+import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=a0fba0e7e0bd';
+import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=a0fba0e7e0bd';
+import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=a0fba0e7e0bd';
 
-import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime } from './curves.js';
-import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=faster-breathing-4';
-import { PlacementResponse } from './placement.js?revision=click-settle-1';
+import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime, visibleEndTime } from './curves.js?revision=a0fba0e7e0bd';
+import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=a0fba0e7e0bd';
+import { PlacementResponse } from './placement.js?revision=a0fba0e7e0bd';
+import { observeLayout, bufferDimensions } from './responsive.js?revision=a0fba0e7e0bd';
+import { rebaseRay, rebaseFocus } from './rebase.js?revision=a0fba0e7e0bd';
+import { TapGesture } from './input.js?revision=a0fba0e7e0bd';
+import { RenderQuality } from './quality.js?revision=a0fba0e7e0bd';
+import { supportBounds } from './support.js?revision=a0fba0e7e0bd';
 
 const canvas = document.querySelector('#field');
 const ctx = canvas.getContext('2d', { alpha: false });
 const artwork = document.querySelector('.artwork');
+if (!ctx) { artwork.dataset.renderer = 'fallback'; window.axisRecoverEntrance?.(); throw new Error('Canvas rendering is unavailable'); }
 const pauseButton = document.querySelector('#pause');
 const notes = document.querySelector('#notes');
 const tuning = document.querySelector('#tuning');
@@ -50,11 +56,17 @@ window.addEventListener('storage',event=>{
 let dropWells = [];
 let storageAvailable = true;
 let settings = loadSettings();
+if (document.body.classList.contains('banner-presentation')) settings.density = DEFAULT_SETTINGS.density;
 const focus = new GravityFocus(settings);
+const quality = new RenderQuality();
 let rayPool = [];
+let rayRandom = seededRandom();
+let seedLayout;
 let tuningOpen = false;
 const alphas = [.32, .47, .66, .87];
 const bins = alphas.map(() => []);
+const fadingBins = alphas.map(() => []);
+let sampledCount = settings.density, samplingFrom = sampledCount, samplingTo = sampledCount, samplingAge = .5;
 const profileCount = 12;
 const profileCache = new Map();
 let profiles = [];
@@ -63,8 +75,12 @@ let flow = 'converge', tempo = DEFAULT_TEMPO, paused = reducedMotion.matches;
 let hoverEnabled = true;
 let previousTime = 0, elapsed = 0;
 let frameCount = 0, frameTotal = 0, lastReport = 0;
+let frameSeconds = 0, observedFps = 0, resizeCount = 0;
 let maxDisplacement = 0, maxLightSpeed = 0;
 let geometryActive = false;
+let renderTimings = {};
+const supportBox = {};
+let layout, frameRequest = 0;
 
 function screenX(x) { return width * .5 + x * scale; }
 function screenY(y) { return height * .49 + y * scale; }
@@ -72,10 +88,11 @@ function screenY(y) { return height * .49 + y * scale; }
 function prepareProfiles() {
   // The main radial field never moves or changes mass on hover. The local
   // cursor influence is applied only inside a bounded neighborhood below.
-  const key = 0;
+  const key = outerRadius;
   if (!profileCache.has(key)) {
-    const mu = MODEL.mu + key * .002;
-    profileCache.set(key, Array.from({ length: profileCount }, (_, i) => resampleTrajectory(buildTrajectory(mu, outerRadius, i / (profileCount - 1)))));
+    const mu = MODEL.mu;
+    profileCache.set(key, Array.from({ length: profileCount }, (_, i) => resampleTrajectory(buildTrajectory(mu, outerRadius, i / (profileCount - 1)), Math.max(.045, outerRadius / 180))));
+    if (profileCache.size > 3) profileCache.delete(profileCache.keys().next().value);
   }
   profiles = profileCache.get(key);
 }
@@ -90,27 +107,42 @@ function reset({ preserveDrops = false } = {}) {
   }
   elapsed = 0;
   previousTime = 0;
-  frameCount = frameTotal = 0;
+  frameCount = frameTotal = frameSeconds = 0;
   maxDisplacement = maxLightSpeed = 0;
   geometryActive = false;
   profileCache.clear();
-  const random = seededRandom();
+  rayRandom = seededRandom();
   prepareProfiles();
   rayPool = [];
+  seedLayout = { ...layout };
   for (const bin of bins) bin.length = 0;
-  for (let i = 0; i < MAX_RAYS; i++) {
+  ensureRays(settings.density);
+  setDensity(false);
+  updateDropWells();
+  paintFrame();
+  reportState(0);
+  canvas.dataset.ready = 'true';
+  artwork.dataset.renderer = 'ready';
+  announce(`${flow === 'converge' ? 'Inward' : 'Outward'} field ready. Hover attracts nearby light; the main center stays fixed.`);
+}
+
+function ensureRays(count) {
+  for (let i = rayPool.length; i < Math.min(MAX_RAYS, count); i++) {
     // An evenly spreading sequence keeps every density setting balanced.
     // Existing rays retain their phase and geometry when density changes.
-    const angle = i * Math.PI * (3 - Math.sqrt(5)) + random() * .006;
-    const bin = Math.min(3, Math.floor(Math.pow(random(), 1.5) * 4));
+    const angle = i * Math.PI * (3 - Math.sqrt(5)) + rayRandom() * .006;
+    const bin = Math.min(3, Math.floor(Math.pow(rayRandom(), 1.5) * 4));
+    const dx = Math.cos(angle) * width / seedLayout.width * seedLayout.scale / scale;
+    const dy = Math.sin(angle) * height / seedLayout.height * seedLayout.scale / scale;
+    const magnitude = Math.hypot(dx, dy);
     rayPool.push({
       id: i, bin, visible: false,
-      cos: Math.cos(angle), sin: Math.sin(angle), profile: Math.floor(random() * profileCount), phase: random(),
-      length: .70 + random() * 1.15, response: CURSOR_RESPONSE.lightMin + random() * CURSOR_RESPONSE.lightSpread,
-      delay: CURSOR_RESPONSE.delayMin + (.5 + .5 * Math.sin(angle * 3)) * CURSOR_RESPONSE.delaySpread + random() * CURSOR_RESPONSE.delayJitter,
+      cos: dx / magnitude, sin: dy / magnitude, profile: Math.floor(rayRandom() * profileCount), phase: rayRandom(),
+      length: .70 + rayRandom() * 1.15, response: CURSOR_RESPONSE.lightMin + rayRandom() * CURSOR_RESPONSE.lightSpread,
+      delay: CURSOR_RESPONSE.delayMin + (.5 + .5 * Math.sin(angle * 3)) * CURSOR_RESPONSE.delaySpread + rayRandom() * CURSOR_RESPONSE.delayJitter,
+      deformed: false, dirty: true,
     });
-  }
-  for (const ray of rayPool) {
+    const ray = rayPool.at(-1);
     const points = profiles[ray.profile].points;
     ray.nodes = new Float64Array(points.length * 6);
     ray.screen=new Float64Array(points.length*2);ray.curves=new Float64Array((points.length-1)*8);
@@ -119,42 +151,58 @@ function reset({ preserveDrops = false } = {}) {
       ray.nodes[i * 6 + 1] = points[i].x * ray.sin + points[i].y * ray.cos;
     }
   }
-  setDensity();
-  updateDropWells();
-  paintFrame();
-  reportState(0);
-  canvas.dataset.ready = 'true';
-  announce(`${flow === 'converge' ? 'Inward' : 'Outward'} field ready. Hover attracts nearby light; the main center stays fixed.`);
 }
 
-function setDensity() {
+function setDensity(fade = true) {
+  const count = Math.min(settings.density, quality.rayCap);
+  ensureRays(settings.density);
+  samplingFrom = sampledCount; samplingTo = count; samplingAge = fade && count !== sampledCount ? 0 : .5;
+  if (samplingAge === .5) sampledCount = count;
+  rebuildBins();
+}
+
+function rebuildBins() {
   for (const bin of bins) bin.length = 0;
+  for (const bin of fadingBins) bin.length = 0;
+  const low = Math.min(samplingFrom, samplingTo), high = Math.max(samplingFrom, samplingTo);
   for (let i = 0; i < rayPool.length; i++) {
     const ray = rayPool[i];
-    const visible = i < settings.density;
-    if (visible && !ray.visible) for (let n = 0; n < ray.nodes.length; n += 6) {
-      ray.nodes[n + 2] = ray.nodes[n + 3] = ray.nodes[n + 4] = ray.nodes[n + 5] = 0;
-    }
-    ray.visible = visible;
-    if (visible) bins[ray.bin].push(ray);
+    ray.visible = i < (samplingAge < .5 ? high : samplingTo);
+    if (ray.visible) (samplingAge < .5 && i >= low ? fadingBins : bins)[ray.bin].push(ray);
   }
 }
 
-function resize() {
-  const bounds = artwork.getBoundingClientRect();
-  width = bounds.width;
-  height = bounds.height;
-  scale = height * .5;
-  ratio = Math.min(devicePixelRatio || 1, 1.5);
-  outerRadius = Math.hypot(width / height, 1) * 2.12;
-  canvas.width = layer.width = Math.round(width * ratio);
-  canvas.height = layer.height = Math.round(height * ratio);
+function resize(nextLayout = layout) {
+  if (!nextLayout) return;
+  const previous = layout, previousProfiles = profiles;
+  const oldGuides = lightDrops.items.map(drop => lightDrops.guide(drop, carrierAtTime));
+  layout = nextLayout;
+  width = layout.width; height = layout.height; scale = layout.scale; outerRadius = layout.outerRadius;
+  const buffer = bufferDimensions(width, height, devicePixelRatio, quality.pixelCap);
+  const dimensionsChanged = !previous || previous.width !== width || previous.height !== height;
+  const bufferChanged = canvas.width !== buffer.width || canvas.height !== buffer.height || ratio !== buffer.ratio;
+  ratio = buffer.ratio;
+  if (!dimensionsChanged && !bufferChanged) return;
+  resizeCount++;
+  if (dimensionsChanged && rayPool.length) {
+    const xFactor = width / previous.width * previous.scale / scale, yFactor = height / previous.height * previous.scale / scale;
+    prepareProfiles();
+    const durationRatios = rayPool.map(ray => profiles[ray.profile].duration / previousProfiles[ray.profile].duration);
+    for (const ray of rayPool) rebaseRay(ray, previousProfiles[ray.profile], profiles[ray.profile], xFactor, yFactor);
+    lightDrops.rebase(oldGuides, carrierAtTime, durationRatios, xFactor, yFactor);
+    rebaseFocus(focus, xFactor, yFactor); placement.rebase(xFactor, yFactor);
+    if (depositedCursorPoint) { depositedCursorPoint.x *= xFactor; depositedCursorPoint.y *= yFactor; }
+  }
+  canvas.width = layer.width = buffer.width;
+  canvas.height = layer.height = buffer.height;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   lines.setTransform(ratio, 0, 0, ratio, 0, 0);
-  colorField.resize(ctx, width, height);
+  colorField.resize(ctx, width, height, layout);
   prepareRayEntrance();
   prepareCore();
-  reset({ preserveDrops: true });
+  if (!rayPool.length) reset();
+  else { updateDropWells(); paintFrame(); reportState(0); }
+  scheduleFrame();
 }
 
 function updateGeometry(dt) {
@@ -162,24 +210,33 @@ function updateGeometry(dt) {
   let displacement2 = 0, speed2 = 0;
   geometryActive = false;
   const cursorReleased = hoverEnabled && !focus.active;
-  for (const bin of bins) for (const ray of bin) {
+  const hosts = new Set(lightDrops.items.map(drop => drop.ray));
+  for (const ray of rayPool) {
+    if (!ray.visible && !hosts.has(ray.id)) continue;
     const nodes = ray.nodes;
+    const wasDeformed = ray.deformed;
+    ray.deformed = false;
     const omega = ray.response * focus.reactionRate;
     const variation = (ray.response - CURSOR_RESPONSE.lightMin) / CURSOR_RESPONSE.lightSpread;
     const releasedResponse = filamentResponse(dt, omega, cursorReleased, focus.releaseCharge, variation);
     const placedFields = dropWells.length ? lightFieldsForRay(dropWells, ray) : dropWells;
     const activeResponse = placedFields.length && cursorReleased ? filamentResponse(dt, omega, false, 0, variation) : releasedResponse;
     const well = focus.delayed(ray.delay / focus.reactionRate);
+    const { active, lowX, highX, lowY, highY } = supportBounds(ray, well, placedFields, placement.items, supportBox);
+    if (!active && !wasDeformed) continue;
     for (let i = 0; i < nodes.length; i += 6) {
-      const target = placedFields.length ? projectLightFields(focus, nodes[i], nodes[i + 1], well, placedFields, flow)
+      const affected = nodes[i] >= lowX && nodes[i] <= highX && nodes[i + 1] >= lowY && nodes[i + 1] <= highY;
+      if (!affected && nodes[i + 2] === 0 && nodes[i + 3] === 0 && nodes[i + 4] === 0 && nodes[i + 5] === 0) continue;
+      const target = !affected ? { x: nodes[i], y: nodes[i + 1], placedInfluence: 0 } : placedFields.length ? projectLightFields(focus, nodes[i], nodes[i + 1], well, placedFields, flow)
         : focus.project(nodes[i], nodes[i + 1], well, flow);
-      if(placement.items.length)placement.apply(target,nodes[i],nodes[i+1]);
+      if(affected && placement.items.length)placement.apply(target,nodes[i],nodes[i+1]);
       const targetX = target.x - nodes[i], targetY = target.y - nodes[i + 1];
       if (targetX === 0 && targetY === 0 && nodes[i + 2] === 0 && nodes[i + 3] === 0 && nodes[i + 4] === 0 && nodes[i + 5] === 0) continue;
       const released = cursorReleased && (!placedFields.length || target.placedInfluence < .003);
       settleFilamentNode(nodes, i, targetX, targetY, dt, released ? releasedResponse : activeResponse, released);
-      if (nodes[i + 2] !== 0 || nodes[i + 3] !== 0 || nodes[i + 4] !== 0 || nodes[i + 5] !== 0) geometryActive = true;
-      if (Math.abs(nodes[i]) < width / height && Math.abs(nodes[i + 1]) < 1) {
+      ray.dirty = true;
+      if (nodes[i + 2] !== 0 || nodes[i + 3] !== 0 || nodes[i + 4] !== 0 || nodes[i + 5] !== 0) geometryActive = ray.deformed = true;
+      if (Math.abs(nodes[i]) < width / scale && Math.abs(nodes[i + 1]) < height / scale) {
         displacement2 = Math.max(displacement2, nodes[i + 2] ** 2 + nodes[i + 3] ** 2);
         speed2 = Math.max(speed2, nodes[i + 4] ** 2 + nodes[i + 5] ** 2);
       }
@@ -201,10 +258,13 @@ function placeAtTime(ray,time){
   return cubicPoint(ray.curves,i*8,(time-points[i].t)/(points[i+1].t-points[i].t));
 }
 function refreshCurves(){
-  for(const bin of bins)for(const ray of bin){
+  for(const ray of rayPool){
+    if (!ray.visible || !ray.dirty) continue;
     const points=profiles[ray.profile].points;
     for(let n=0;n<points.length;n++){ray.screen[n*2]=screenX(ray.nodes[n*6]+ray.nodes[n*6+2]);ray.screen[n*2+1]=screenY(ray.nodes[n*6+1]+ray.nodes[n*6+3]);}
     cubicSegments(points,ray.screen,ray.curves);
+    ray.visibleEnd = visibleEndTime(points, ray.curves, width, height);
+    ray.dirty = false;
   }
 }
 
@@ -218,8 +278,11 @@ function carrierAtTime(rayIndex, time) {
 }
 
 function trace(ray,start,end){
-  const profile=profiles[ray.profile],points=profile.points;start=Math.max(0,start);end=Math.min(profile.duration,end);if(end<=start)return;
+  const profile=profiles[ray.profile],points=profile.points;start=Math.max(0,start);end=Math.min(profile.duration,end,ray.visibleEnd);if(end<=start)return;
   const first=placeAtTime(ray,start);lines.moveTo(first.x,first.y);
+  // Undeformed radial curves are exactly straight; avoid resubmitting every
+  // collinear sample. Deformed paths retain the full smooth cubic geometry.
+  if (!ray.deformed) { const last = placeAtTime(ray,end); lines.lineTo(last.x,last.y); return; }
   for(let i=segmentAtTime(points,start),high=segmentAtTime(points,end);i<=high;i++){
     const dt=points[i+1].t-points[i].t,a=Math.max(0,(start-points[i].t)/dt),b=Math.min(1,(end-points[i].t)/dt),n=i*8;
     if(b<=a)continue;
@@ -238,13 +301,19 @@ function paintFilaments() {
   const fieldAlphas = [.14, .24, .38, .58];
   const taper = [1, .94, .80, .60, .34, .10];
   lines.lineCap = 'round';
-  for (let bin = 0; bin < bins.length; bin++) {
+  const fade = Math.min(1, samplingAge / .5), eased = fade * fade * (3 - 2 * fade);
+  const fadingOpacity = samplingTo < samplingFrom ? 1 - eased : eased;
+  const density = samplingAge < .5 ? samplingFrom + (samplingTo - samplingFrom) * eased : sampledCount;
+  for (const group of [{ paths: bins, opacity: 1 }, { paths: fadingBins, opacity: fadingOpacity }]) {
+  if (!group.opacity) continue;
+  lines.globalAlpha = group.opacity;
+  for (let bin = 0; bin < group.paths.length; bin++) {
     lines.lineWidth = .58;
     lines.beginPath();
-    for (const ray of bins[bin]) trace(ray, 0, profiles[ray.profile].duration);
+    for (const ray of group.paths[bin]) trace(ray, 0, profiles[ray.profile].duration);
     // Let the moving accents feed the core. Dense background filaments fade
     // near it instead of overlapping into a broad gray/white disk.
-    const opacity = fieldAlphas[bin] * .55 * Math.min(1, Math.sqrt(1200 / settings.density));
+    const opacity = fieldAlphas[bin] * .55 * Math.min(1, Math.sqrt(1200 / density));
     const ink = lines.createRadialGradient(screenX(0), screenY(0), 0, screenX(0), screenY(0), scale * .48);
     ink.addColorStop(0, 'rgba(235,237,240,0)');
     ink.addColorStop(.32, 'rgba(235,237,240,0)');
@@ -256,7 +325,7 @@ function paintFilaments() {
     lines.lineWidth = .70 + bin * .09;
     for (let slice = 0; slice < taper.length; slice++) {
       lines.beginPath();
-      for (const ray of bins[bin]) {
+      for (const ray of group.paths[bin]) {
         const duration = profiles[ray.profile].duration;
         const length = ray.length * settings.rayLength;
         const head = streakHead(ray.phase, duration, length, flow);
@@ -269,6 +338,8 @@ function paintFilaments() {
       lines.stroke();
     }
   }
+  }
+  lines.globalAlpha = 1;
 }
 
 function prepareCore(){
@@ -306,15 +377,19 @@ function prepareRayEntrance() {
 }
 
 function paintCore(){const extent=Math.max(12,scale*.12)*2*breathingScale(orbSeconds,CORE_BREATH_AMOUNT);ctx.drawImage(coreLayer,screenX(0)-extent*.5,screenY(0)-extent*.5,extent,extent);}
-function paintDrops(){for(const drop of lightDrops.items){const position=lightDrops.position(drop,carrierAtTime),appearance=dropAppearance(drop,position);paintOrb(ctx,{x:screenX(position.x),y:screenY(position.y),radius:Math.max(9,scale*.038)*appearance.radiusScale,seconds:orbSeconds,option:drop.orb,clicked:1,brightness:appearance.brightness,opacity:drop.opacity*appearance.opacityScale});}}
+function paintDrops(){for(const drop of lightDrops.items){const position=lightDrops.position(drop,carrierAtTime),appearance=dropAppearance(drop,position);paintOrb(ctx,{x:screenX(position.x),y:screenY(position.y),radius:Math.max(4,scale*.038)*appearance.radiusScale,seconds:orbSeconds,option:drop.orb,clicked:1,brightness:appearance.brightness,opacity:drop.opacity*appearance.opacityScale});}}
 
 function paintFrame() {
+  const before = performance.now();
   paintFilaments();
+  renderTimings.filaments = performance.now() - before;
   const spot = {
     x: screenX(focus.x), y: screenY(focus.y), originX: screenX(0), originY: screenY(0), flow,
     radius: settings.reach * scale, exposure: colorExposure.value, size: colorExposure.size,seconds:orbSeconds,
   };
   colorField.background(ctx, width, height, spot);
+  const backgroundEnd = performance.now();
+  renderTimings.background = backgroundEnd - before - renderTimings.filaments;
   colorField.tintRays(lines,width,height,spot,dropWells.map(well=>({x:screenX(well.x),y:screenY(well.y),originX:screenX(0),originY:screenY(0),flow,radius:well.radius*scale,exposure:well.influence*.55,size:.8})));
   lines.save();
   lines.globalCompositeOperation = 'destination-in';
@@ -323,19 +398,24 @@ function paintFrame() {
   ctx.drawImage(layer, 0, 0, width, height);
   paintDrops();
   const handedOff=depositedCursorPoint&&Math.hypot(focus.targetX-depositedCursorPoint.x,focus.targetY-depositedCursorPoint.y)<.08;
-  paintOrb(ctx,{x:spot.x,y:spot.y,radius:Math.max(8,scale*.032)*(.65+.35*colorExposure.size/1.4)*coreProximityScale(Math.hypot(focus.x,focus.y)),seconds:orbSeconds,option:orbOption,opacity:handedOff?0:Math.min(1,colorExposure.value*1.3)});
+  paintOrb(ctx,{x:spot.x,y:spot.y,radius:Math.max(4,scale*.032)*(.65+.35*colorExposure.size/1.4)*coreProximityScale(Math.hypot(focus.x,focus.y)),seconds:orbSeconds,option:orbOption,opacity:handedOff?0:Math.min(1,colorExposure.value*1.3)});
   paintCore();
+  renderTimings.composite = performance.now() - backgroundEnd;
 }
 
 function reportState(frameMs) {
+  canvas.dataset.renderTimings = JSON.stringify(renderTimings);
   Object.assign(canvas.dataset, {
-    flow, rays: String(settings.density), continuousPaths: String(settings.density), fieldCenters: String(1 + dropWells.length), historyTrails: '0', inertia: 'delayed-momentum', visualModel: 'approved-magnetic-filaments', geometry:'C1-cubic-curves', pullModel:'previous-hover-force',
+    flow, rays: String(sampledCount), requestedRays: String(settings.density), allocatedRays: String(rayPool.length), continuousPaths: String(sampledCount), fieldCenters: String(1 + dropWells.length), historyTrails: '0', inertia: 'delayed-momentum', visualModel: 'approved-magnetic-filaments', geometry:'C1-cubic-curves', pullModel:'previous-hover-force',
+    layout: layout.mode, sceneWidth: width.toFixed(1), sceneHeight: height.toFixed(1), sceneScale: scale.toFixed(3), starX: screenX(0).toFixed(2), starY: screenY(0).toFixed(2), referenceExtent: layout.referenceExtent.toFixed(1),
+    pixelRatio: ratio.toFixed(3), bufferPixels: String(canvas.width * canvas.height), qualityLevel: String(quality.level), samplingFade: String(samplingAge < .5),
+    measuredFps: observedFps.toFixed(1), resizeCount: String(resizeCount), leadRayPhase: rayPool[0].phase.toFixed(8), orbClock: orbSeconds.toFixed(4),
     cursorPolarity: 'approach-attract-departure-repel', broadBloom: 'off', cursorHaze: 'off', coreStyle: 'white-hot-star', coreBreathingScale:breathingScale(orbSeconds,CORE_BREATH_AMOUNT).toFixed(4), centerMask: 'off',
     rayEntrance: 'smooth-edge-opacity', edgeRayOpacity: String(EDGE_RAY_OPACITY), cornerRayOpacity: String(EDGE_RAY_OPACITY ** 2), innerRayOpacity: '1',
     colorStudy: '01-cool-field', colorPalette: 'axis-core-field', localExposure: colorExposure.value.toFixed(3),
     colorRendering: 'reference-inner-color-gradients', backgroundGradient: 'restored-compact-49-100-inward-arc', backgroundGrain: 'fine-correlated-tonal-grain',grainSizePx:String(BACKGROUND_GRAIN.size),grainSizeUnit:'device-pixel-within-one-percent',grainOpacity:String(BACKGROUND_GRAIN.opacity),grainBlend:BACKGROUND_GRAIN.blend,grainBaseExposure:String(BACKGROUND_GRAIN.baseExposure),grainMotion:flow==='radiate'?'gentle-radial-outward-drift':'gentle-radial-inward-drift',grainLayer:'above-gradient-below-rays-and-lights',grainPhase:((orbSeconds/BACKGROUND_GRAIN.driftSeconds)%1).toFixed(3),grainLoopSeconds:String(BACKGROUND_GRAIN.driftSeconds),grainEvolutionSeconds:String(BACKGROUND_GRAIN.loopSeconds),grainContraction:String(BACKGROUND_GRAIN.contraction),grainSource:BACKGROUND_GRAIN.nodeId, cursorLighting: 'shared-field-and-incoming-rays',
     cursorPace: 'smaller-and-dimmer', restingGradientGain: '1.40', lightDrops: String(lightDrops.items.length),
-    lightDropRadiusPx: Math.max(9,scale*.038).toFixed(1),orbOption,orbCycle:ORB_PROTOTYPE||orbCycle.join(','),orbPeriodSeconds:String(ORB_PERIOD),orbRotation:(orbSeconds*360/ORB_PERIOD).toFixed(2),orbBreathingScale:breathingScale(orbSeconds).toFixed(4),orbGlowBreathingScale:breathingScale(orbSeconds,ORB_GLOW_BREATH_AMOUNT).toFixed(4),orbBreathingPeriodSeconds:String(ORB_BREATH_PERIOD),orbBreathingAmount:String(ORB_BREATH_AMOUNT),sourceMotion:'independent-of-cursor',
+    lightDropRadiusPx: Math.max(4,scale*.038).toFixed(1),orbOption,orbCycle:ORB_PROTOTYPE||orbCycle.join(','),orbPeriodSeconds:String(ORB_PERIOD),orbRotation:(orbSeconds*360/ORB_PERIOD).toFixed(2),orbBreathingScale:breathingScale(orbSeconds).toFixed(4),orbGlowBreathingScale:breathingScale(orbSeconds,ORB_GLOW_BREATH_AMOUNT).toFixed(4),orbBreathingPeriodSeconds:String(ORB_BREATH_PERIOD),orbBreathingAmount:String(ORB_BREATH_AMOUNT),sourceMotion:'independent-of-cursor',
     placedGravity: 'deposited-hover-field', placementResponse:'damped-depth-settle', placedSize:'distance-taper', placedFields: String(dropWells.length),
     clickLightResponse:'tiny-local-settle',clickPulses:String(placement.items.length),
     dotInteraction: 'softened-newtonian-pairs', pairTimeStep: '1/240',
@@ -343,14 +423,14 @@ function reportState(frameMs) {
     lightDropPositions: JSON.stringify(lightDrops.items.map(drop => {
       const position = lightDrops.position(drop, carrierAtTime);
       const appearance=dropAppearance(drop,position);
-      return { id: drop.id,orb:drop.orb, x: +position.x.toFixed(4), y: +position.y.toFixed(4), progress: +drop.progress.toFixed(3), opacity: +drop.opacity.toFixed(3), displayedOpacity:+(drop.opacity*appearance.opacityScale).toFixed(3),brightness:+appearance.brightness.toFixed(3),gravity: +drop.gravity.toFixed(3), radiusPx:+(Math.max(9,scale*.038)*appearance.radiusScale*breathingScale(orbSeconds)).toFixed(2),settlingScale:+appearance.settlingScale.toFixed(4),pairOffsetPx: +(Math.hypot(drop.couplingX, drop.couplingY) * scale).toFixed(1), vx: +drop.vx.toFixed(4), vy: +drop.vy.toFixed(4) };
+      return { id: drop.id,orb:drop.orb, age: +drop.age.toFixed(3), hostRay: drop.ray, x: +position.x.toFixed(4), y: +position.y.toFixed(4), progress: +drop.progress.toFixed(3), opacity: +drop.opacity.toFixed(3), displayedOpacity:+(drop.opacity*appearance.opacityScale).toFixed(3),brightness:+appearance.brightness.toFixed(3),gravity: +drop.gravity.toFixed(3), radiusPx:+(Math.max(4,scale*.038)*appearance.radiusScale*breathingScale(orbSeconds)).toFixed(2),settlingScale:+appearance.settlingScale.toFixed(4),pairOffsetPx: +(Math.hypot(drop.couplingX, drop.couplingY) * scale).toFixed(1), vx: +drop.vx.toFixed(4), vy: +drop.vy.toFixed(4) };
     })),
     cursorColorRadiusPx: (cursorColorRadius(settings.reach * scale, colorExposure.size) * 1.04).toFixed(1), cursorColorSize: colorExposure.size.toFixed(3),
     returnMotion: 'slow-damped', returnMode: focus.active ? 'local' : 'released',
     cursorResponse: 'gentler-moving-field',
     absorption: 'whole-streak', forceDelayMs: `${Math.round(CURSOR_RESPONSE.delayMin * 1000 / focus.reactionRate)}–${Math.round((CURSOR_RESPONSE.delayMin + CURSOR_RESPONSE.delaySpread + CURSOR_RESPONSE.delayJitter) * 1000 / focus.reactionRate)}`,
     tempo: tempo.toFixed(2),
-    state: paused ? 'paused' : 'running', hover: hoverEnabled ? 'enabled' : 'disabled',
+    state: reducedMotion.matches ? 'static' : paused ? 'paused' : document.hidden ? 'suspended' : 'running', hover: hoverEnabled ? 'enabled' : 'disabled',
     frameMs: frameMs.toFixed(2), simulationTime: elapsed.toFixed(3),
     fieldMu: MODEL.mu.toFixed(5), hoverMass: (focus.mu - MODEL.mu).toFixed(5),
     fieldX: '0.0000', fieldY: '0.0000', fixedCenter: 'true',
@@ -370,14 +450,16 @@ function reportState(frameMs) {
 }
 
 function frame(timestamp) {
-  requestAnimationFrame(frame);
+  frameRequest = 0;
+  if (paused || document.hidden || reducedMotion.matches || !layout) return;
+  scheduleFrame();
   if (!previousTime) previousTime = timestamp;
   const rotationDt = (timestamp - previousTime) / 1000;
   const realDt = Math.min(rotationDt, .06);
   previousTime = timestamp;
-  if (paused || document.hidden || realDt <= 0) return;
+  if (realDt <= 0) return;
   const started = performance.now();
-  orbSeconds+=rotationDt;
+  orbSeconds+=realDt;
   focus.update(realDt, hoverEnabled);
   colorExposure.update(realDt, focus, hoverEnabled);
   lightDrops.update(realDt, carrierAtTime, settings.pullStrength / DEFAULT_SETTINGS.pullStrength);
@@ -385,6 +467,7 @@ function frame(timestamp) {
   prepareProfiles();
   updateDropWells();
   updateGeometry(realDt);
+  renderTimings.geometry = performance.now() - started;
   const simulationDt = realDt * .42 * tempo;
   elapsed += simulationDt;
   // The tip may travel behind the core while the remaining tail feeds in.
@@ -393,22 +476,43 @@ function frame(timestamp) {
     ray.phase = streakPhase(ray.phase, simulationDt, profiles[ray.profile].duration, ray.length * settings.rayLength, flow);
   }
   paintFrame();
+  if (samplingAge < .5) {
+    samplingAge = Math.min(.5, samplingAge + realDt);
+    if (samplingAge === .5) { sampledCount = samplingTo; rebuildBins(); }
+  }
+  const workMs = performance.now() - started;
+  if (quality.observe(workMs, rotationDt, ratio)) {
+    resize();
+    if (Math.min(settings.density, quality.rayCap) !== samplingTo) setDensity();
+  }
   frameCount++;
-  frameTotal += performance.now() - started;
+  frameSeconds += rotationDt;
+  frameTotal += workMs;
   if (timestamp - lastReport > 250) {
+    observedFps = frameSeconds > 0 ? frameCount / frameSeconds : 0;
     reportState(frameTotal / frameCount);
-    frameCount = frameTotal = 0;
+    frameCount = frameTotal = frameSeconds = 0;
     lastReport = timestamp;
   }
+}
+
+function scheduleFrame() {
+  if (!frameRequest && !paused && !document.hidden && !reducedMotion.matches && layout) frameRequest = requestAnimationFrame(frame);
 }
 
 function announce(message) { document.querySelector('#status').textContent = message; }
 function updatePause() {
   pauseButton.textContent = paused ? 'Play' : 'Pause';
   pauseButton.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
-  canvas.dataset.state = paused ? 'paused' : 'running';
+  canvas.dataset.state = paused ? 'paused' : document.hidden ? 'suspended' : 'running';
+  if (reducedMotion.matches) canvas.dataset.state = 'static';
+  if (paused || document.hidden || reducedMotion.matches) {
+    cancelAnimationFrame(frameRequest); frameRequest = 0;
+    quality.overload = 0; frameCount = frameTotal = frameSeconds = 0;
+  }
+  else scheduleFrame();
 }
-function togglePause() { paused = !paused; previousTime = 0; updatePause(); }
+function togglePause() { if (reducedMotion.matches) return; paused = !paused; previousTime = 0; updatePause(); }
 function toggleNotes(open = notes.hidden) {
   notes.hidden = !open;
   document.querySelector('#about').setAttribute('aria-expanded', String(open));
@@ -509,7 +613,7 @@ document.querySelector('#about').addEventListener('click', () => toggleNotes());
 document.querySelector('#close-notes').addEventListener('click', () => toggleNotes(false));
 
 function pointAtCursor(event) {
-  if (event.pointerType === 'touch' || !hoverEnabled) return;
+  if (event.pointerType === 'touch' || !hoverEnabled || reducedMotion.matches || (event.pointerType === 'pen' && event.buttons)) return;
   canvas.dataset.pointerEvent = event.type;
   canvas.dataset.pointerTrusted = String(event.isTrusted);
   const bounds = canvas.getBoundingClientRect();
@@ -517,14 +621,14 @@ function pointAtCursor(event) {
 }
 canvas.addEventListener('pointerenter', pointAtCursor);
 canvas.addEventListener('pointermove', pointAtCursor);
-canvas.addEventListener('click', event => {
-  if (event.button !== 0) return;
+function depositLight(event, touch = false) {
   const bounds = canvas.getBoundingClientRect();
   const x = event.clientX - bounds.left, y = event.clientY - bounds.top;
   let nearest = null, minimum = Infinity;
   // Attach to the closest point on a visible, currently deformed filament.
   // Its future position continues to use that very same filament geometry.
-  for (let index = 0; index < settings.density; index++) {
+  for (let index = 0; index < rayPool.length; index++) {
+    if (!rayPool[index].visible) continue;
     const ray = rayPool[index], points = profiles[ray.profile].points;
     let a = placeNode(ray, 0);
     for (let n = 1; n < points.length; n++) {
@@ -546,9 +650,11 @@ canvas.addEventListener('click', event => {
     nearest.offsetX = (x - width * .5) / scale - carrier.x;
     nearest.offsetY = (y - height * .49) / scale - carrier.y;
   }
-  if(nearest)Object.assign(nearest,{influence:focus.influence,radius:focus.radius,orb:orbOption});
+  if(nearest)Object.assign(nearest,{influence:touch ? .86 : focus.influence,radius:touch ? settings.reach : focus.radius,orb:orbOption});
   const drop = nearest && lightDrops.add(nearest);
   if (!drop) return;
+  canvas.dataset.lastDepositInput = touch ? 'touch' : 'mouse';
+  canvas.dataset.lastDepositTrusted = String(event.isTrusted);
   // A paused preview can still show the placed point without starting motion.
   drop.opacity = 1;
   placement.add((x-width*.5)/scale,(y-height*.49)/scale);
@@ -556,13 +662,41 @@ canvas.addEventListener('click', event => {
   try{localStorage.setItem(ORB_KEY,orbOption);}catch{}
   depositedCursorPoint={x:focus.targetX,y:focus.targetY};
   updateDropWells();
+  if (paused || reducedMotion.matches) updateGeometry(.016);
   paintFrame();
   reportState(0);
   announce(`Light placed. Nearby lines settle gently; the next cursor light is ${resolveOrb(orbOption).name}.`);
+}
+const taps = new TapGesture();
+let lastTouch = null;
+window.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'touch') return;
+  focus.leave();
+  taps.down(event);
+  if (event.target !== canvas) taps.cancel();
+}, { passive: true, capture: true });
+window.addEventListener('pointermove', event => {
+  if (event.pointerType === 'touch') taps.move(event);
+}, { passive: true });
+window.addEventListener('pointerup', event => {
+  if (event.pointerType !== 'touch') return;
+  lastTouch = { time: event.timeStamp, x: event.clientX, y: event.clientY };
+  if (taps.up(event)) {
+    const bounds = canvas.getBoundingClientRect();
+    if (event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom) depositLight(event, true);
+  }
+}, { passive: true });
+window.addEventListener('pointercancel', event => { if (event.pointerType === 'touch') taps.cancel(event.pointerId); }, { passive: true });
+window.addEventListener('scroll', () => taps.cancel(), { passive: true, capture: true });
+canvas.addEventListener('click', event => {
+  if (event.button !== 0 || event.detail === 0 || event.pointerType === 'touch' || event.sourceCapabilities?.firesTouchEvents) return;
+  if (!event.pointerType && lastTouch && event.timeStamp - lastTouch.time < 750
+    && Math.hypot(event.clientX - lastTouch.x, event.clientY - lastTouch.y) < 30) return;
+  depositLight(event);
 });
 canvas.addEventListener('pointerenter', () => { depositedCursorPoint=null; });
 canvas.addEventListener('pointerleave', () => focus.leave());
-window.addEventListener('blur', () => focus.leave());
+window.addEventListener('blur', () => { focus.leave(); taps.reset(); });
 document.querySelector('#hover').addEventListener('click', event => {
   hoverEnabled = !hoverEnabled;
   focus.leave();
@@ -578,9 +712,15 @@ document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'r') reset();
   if (event.key === 'Escape') toggleNotes(false);
 });
-document.addEventListener('visibilitychange', () => { focus.leave(); previousTime = 0; });
+document.addEventListener('visibilitychange', () => { focus.leave(); taps.reset(); previousTime = 0; updatePause(); });
 reducedMotion.addEventListener('change', event => { paused = event.matches; previousTime = 0; updatePause(); });
 warmOrbTextures();
-new ResizeObserver(resize).observe(artwork);
+observeLayout(resize);
+// A monitor change can alter density without changing the CSS box at all.
+function watchPixelDensity() {
+  const preference = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+  preference.addEventListener('change', () => { resize(); watchPixelDensity(); }, { once: true });
+}
+watchPixelDensity();
 updatePause();
-requestAnimationFrame(frame);
+scheduleFrame();

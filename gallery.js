@@ -1,4 +1,4 @@
-import { ORB_OPTIONS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, breathingScale, resolveOrb, paintOrb } from './orbs.js?revision=faster-breathing-4';
+import { ORB_OPTIONS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, breathingScale, resolveOrb, paintOrb } from './orbs.js?revision=a0fba0e7e0bd';
 const grid=document.querySelector('#options'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
 let selected='01';try{selected=resolveOrb(localStorage.getItem(ORB_KEY)).id;}catch{}
 let paused=reduced.matches,previous=0,seconds=0;

@@ -47,3 +47,17 @@ export function segmentAtTime(points, time) {
   while (high - low > 1) { const mid = (low + high) >> 1; if (points[mid].t > time) high = mid; else low = mid; }
   return low;
 }
+
+// A Bezier stays inside its control-point hull. The last intersecting hull
+// is therefore an exact drawing bound; simulation and dot carriers stay full.
+export function visibleEndTime(points, curves, width, height, bleed = 2) {
+  for (let i = points.length - 2; i >= 0; i--) {
+    const n = i * 8;
+    if (Math.max(curves[n], curves[n+2], curves[n+4], curves[n+6]) < -bleed
+      || Math.min(curves[n], curves[n+2], curves[n+4], curves[n+6]) > width + bleed
+      || Math.max(curves[n+1], curves[n+3], curves[n+5], curves[n+7]) < -bleed
+      || Math.min(curves[n+1], curves[n+3], curves[n+5], curves[n+7]) > height + bleed) continue;
+    return points[i + 1].t;
+  }
+  return 0;
+}

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <title>Axis by Alvis Choi</title>
   <link id="axis-favicon" rel="icon" href="favicon-light-v4.png" type="image/png" sizes="64x64" data-light="favicon-light-v4.png" data-dark="favicon-dark-v4.png">
@@ -19,20 +19,35 @@
       else if (typeof appearance.addListener === 'function') appearance.addListener(update);
     })();
   </script>
-  <script>document.documentElement.classList.add('banner-motion', 'title-motion');</script>
-  <link rel="stylesheet" href="style.css?revision=presentation-only-1">
+  <script>
+    document.documentElement.classList.add('banner-motion', 'title-motion');
+    window.axisRecoverEntrance = () => {
+      document.documentElement.classList.remove('banner-motion', 'title-motion');
+      document.documentElement.dataset.entranceFallback = 'true';
+      const artwork = document.querySelector('.artwork');
+      if (artwork && !document.querySelector('#field')?.dataset.ready) artwork.dataset.renderer = 'fallback';
+    };
+    window.axisEntranceTimeout = setTimeout(window.axisRecoverEntrance, 8000);
+    window.addEventListener('error', event => {
+      if (event.target?.matches?.('script[type="module"]') || event.target === window) window.axisRecoverEntrance();
+    }, true);
+  </script>
+  <link rel="stylesheet" href="style.css?revision=a0fba0e7e0bd">
+  <noscript><style>.title-word {transform:none!important} #field,.banner-logo,.banner-contact,.banner-description,.field-fallback {opacity:1!important} #field{visibility:hidden} .field-fallback{background-image:url("field-fallback-wide.webp")} @media(max-width:767px),(max-aspect-ratio:4/3){.field-fallback{background-image:url("field-fallback-tall.webp")}}</style></noscript>
 </head>
 <body class="banner-presentation artwork-only">
   <main class="workbench">
-    <figure class="artwork" aria-label="Axis desktop background motion study">
+    <figure class="artwork" aria-label="Axis interactive light field">
+      <div class="field-fallback" aria-hidden="true"></div>
       <canvas id="field" aria-label="A luminous green and aqua sunrise arc opens into blue and deep indigo edges, with a small pale-yellow central accent. A bright circular star anchors smooth magnetic rays. Clicking places a rounded color gradient light that gently settles, brightens and becomes smaller and more transparent as it moves inward." role="img"></canvas>
       <div class="banner-overlay">
         <img class="banner-logo" src="axis-full-logo.svg" alt="Axis" draggable="false">
+        <button class="banner-contact" type="button">Get started</button>
         <h1 class="banner-title" aria-label="A New Center of Financial Gravity">
-          <span class="banner-title-start" aria-hidden="true"><span class="title-word-mask"><span class="title-word">A</span></span> <span class="title-word-mask"><span class="title-word">New</span></span> <span class="title-word-mask"><span class="title-word">Center</span></span> <span class="title-word-mask"><span class="title-word">of</span></span></span>
-          <span class="banner-title-end" aria-hidden="true"><span class="title-word-mask"><span class="title-word">Financial</span></span> <span class="title-word-mask"><span class="title-word">Gravity</span></span></span>
+          <span class="banner-title-start" aria-hidden="true"><span class="title-word-mask"><span class="title-word">A</span></span> <span class="title-word-mask"><span class="title-word">New</span></span><br class="title-break"> <span class="title-word-mask"><span class="title-word">Center</span></span> <span class="title-word-mask"><span class="title-word">of</span></span></span>
+          <span class="banner-title-end" aria-hidden="true"><span class="title-word-mask"><span class="title-word">Financial</span></span><br class="title-break"> <span class="title-word-mask"><span class="title-word">Gravity</span></span></span>
         </h1>
-        <p class="banner-description"><span>Axis is the decentralized force pulling</span><span>the future of investing into focus.</span></p>
+        <p class="banner-description"><span>Axis is the decentralized force pulling</span> <span>the future of investing into focus.</span></p>
       </div>
       <figcaption class="sr-only">An upper sunrise arc opens into a fixed luminous star and deeper blue edges. Slow movement gathers approaching light and fans departing lines away. The cursor light shares the background colors, expands when still, and becomes smaller and dimmer as movement speeds up. After leaving, color fades and the lines settle slowly. Clicked points retain the hover field and stay independent of cursor motion, while nearby light responds to both sources. Their pull gradually weakens during the inward journey.</figcaption>
     </figure>
@@ -104,7 +119,8 @@
     <button type="button" id="restore-controls" hidden inert aria-label="Show motion study controls">Controls <span aria-hidden="true">↙</span></button>
     <span id="status" class="sr-only" role="status" aria-live="polite"></span>
   </main>
-  <script type="module" src="field.js?revision=presentation-only-1"></script>
-  <script type="module" src="title-reveal.js?revision=title-then-subtitle-2"></script>
+  <script type="module" src="responsive.js?revision=a0fba0e7e0bd"></script>
+  <script type="module" src="field.js?revision=a0fba0e7e0bd"></script>
+  <script type="module" src="title-reveal.js?revision=a0fba0e7e0bd"></script>
 </body>
 </html>

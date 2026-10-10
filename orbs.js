@@ -1,5 +1,5 @@
 // Exact base colors from AXIS Brand Elements / Gradient recipes, 3:44.
-import { AXIS_PALETTE } from './color.js?revision=refined-tonal-grain-1';
+import { AXIS_PALETTE } from './color.js?revision=a0fba0e7e0bd';
 export const ORB_KEY = 'axis-cursor-orb-v1';
 export const ORB_SELECTION_KEY = 'axis-cursor-orb-cycle-v1';
 export const ORB_PERIOD = 6;

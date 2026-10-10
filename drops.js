@@ -1,4 +1,4 @@
-import { PAIR_GRAVITY, advancePairBodies } from './coupling.js?revision=coupled-dot-gravity';
+import { PAIR_GRAVITY, advancePairBodies } from './coupling.js?revision=a0fba0e7e0bd';
 
 
 const clamp = value => Math.max(0, Math.min(1, value));
@@ -29,6 +29,7 @@ export class LightDrops {
       age: 0, hold: .55, duration: 4 + Math.min(3.5, distance * 2),
       progress: 0, time, opacity: 1, attachment: 1, gravity: .86,
       couplingX: 0, couplingY: 0, vx: 0, vy: 0,
+      rebaseX: 0, rebaseY: 0,
       initialInfluence: Math.max(.22, influence), initialRadius: radius, orb,
       startDistance: Math.max(.08,distance),
     };
@@ -51,9 +52,31 @@ export class LightDrops {
   }
 
   position(drop, positionAtTime) {
-    const base = positionAtTime(drop.ray, drop.time);
-    return { x: base.x + drop.offsetX * drop.attachment + drop.couplingX,
-      y: base.y + drop.offsetY * drop.attachment + drop.couplingY };
+    const guide = this.guide(drop, positionAtTime);
+    return { x: guide.x + drop.couplingX, y: guide.y + drop.couplingY };
+  }
+
+  guide(drop, positionAtTime) {
+    const base = positionAtTime(drop.ray, drop.time), remaining = 1 - drop.progress ** 1.35;
+    return { x: base.x + drop.offsetX * drop.attachment + (drop.rebaseX || 0) * remaining,
+      y: base.y + drop.offsetY * drop.attachment + (drop.rebaseY || 0) * remaining };
+  }
+
+  rebase(previousGuides, positionAtTime, durationRatios, xFactor, yFactor) {
+    for (let i = 0; i < this.items.length; i++) {
+      const drop = this.items[i], previous = previousGuides[i], timeScale = durationRatios[drop.ray];
+      drop.startTime *= timeScale; drop.time *= timeScale;
+      drop.offsetX *= xFactor; drop.offsetY *= yFactor;
+      drop.couplingX *= xFactor; drop.couplingY *= yFactor;
+      drop.vx *= xFactor; drop.vy *= yFactor;
+      drop.rebaseX = (drop.rebaseX || 0) * xFactor;
+      drop.rebaseY = (drop.rebaseY || 0) * yFactor;
+      const current = this.guide(drop, positionAtTime), remaining = Math.max(1e-8, 1 - drop.progress ** 1.35);
+      // A residual carrier offset advects into the star, without a position
+      // jump or a new lifetime when a window changes shape mid-flight.
+      drop.rebaseX += (previous.x * xFactor - current.x) / remaining;
+      drop.rebaseY += (previous.y * yFactor - current.y) / remaining;
+    }
   }
 
   update(dt, positionAtTime, gravityScale = 1) {
@@ -64,8 +87,7 @@ export class LightDrops {
       const pairModel = { ...PAIR_GRAVITY, G: PAIR_GRAVITY.G * gravityScale };
       for (let n = 0; n < count; n++) {
         const guides = this.items.map(drop => {
-          const base = positionAtTime(drop.ray, drop.time);
-          return { x: base.x + drop.offsetX * drop.attachment, y: base.y + drop.offsetY * drop.attachment, sink: sinkWeight(drop) };
+          return { ...this.guide(drop, positionAtTime), sink: sinkWeight(drop) };
         });
         const bodies = this.items.map((drop, i) => ({ x: guides[i].x + drop.couplingX,
           y: guides[i].y + drop.couplingY, vx: drop.vx, vy: drop.vy, mass: drop.gravity }));
@@ -73,8 +95,8 @@ export class LightDrops {
           this.updateLife(step);
           for (let i = 0; i < bodies.length; i++) {
             const drop = this.items[i], body = bodies[i], previous = guides[i];
-            const base = positionAtTime(drop.ray, drop.time);
-            const nextX = base.x + drop.offsetX * drop.attachment, nextY = base.y + drop.offsetY * drop.attachment;
+            const guide = this.guide(drop, positionAtTime);
+            const nextX = guide.x, nextY = guide.y;
             // Inward advection is retained. The final absorption gradually
             // dissipates the relative offset and velocity into the fixed star.
             const absorption = previous.sink > 1e-8 ? sinkWeight(drop) / previous.sink : 0;
@@ -86,9 +108,9 @@ export class LightDrops {
           }
         }, pairModel);
         for (let i = 0; i < bodies.length; i++) {
-          const drop = this.items[i], body = bodies[i], base = positionAtTime(drop.ray, drop.time);
-          drop.couplingX = body.x - base.x - drop.offsetX * drop.attachment;
-          drop.couplingY = body.y - base.y - drop.offsetY * drop.attachment;
+          const drop = this.items[i], body = bodies[i], guide = this.guide(drop, positionAtTime);
+          drop.couplingX = body.x - guide.x;
+          drop.couplingY = body.y - guide.y;
           drop.vx = body.vx; drop.vy = body.vy;
         }
       }
