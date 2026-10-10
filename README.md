@@ -14,7 +14,7 @@ python3 -m http.server 8000
 
 The published page presents the artwork without the development control strip or a controls toggle. Hover and click interactions remain active. Space pauses and R replays the entrance. The four cursor color choices are available separately in `cursor-lights.html`.
 
-The hero fills the dynamic viewport. Measured 12-column layouts split the heading around the fixed star; portrait and narrow layouts use four centered title lines. Portrait supporting copy uses two-thirds of the padded content width, capped at 560px, and is centered between the lower title and the bottom guide. Primary taps place lights; swipes and pinch zoom retain browser behavior. Resizing preserves the existing lights and motion clocks. Reduced motion and unavailable scripts/canvas have complete static presentations.
+The hero fills the dynamic viewport. Measured 12-column layouts split the heading around the fixed star; portrait and narrow layouts use four centered title lines. Portrait supporting copy expands from two-thirds of the padded content width to fit two balanced phrases at the approved font size, bounded by the safe side guides, and is centered between the lower title and the bottom guide. Primary taps place lights; swipes and pinch zoom retain browser behavior. Resizing preserves the existing lights and motion clocks. Reduced motion and unavailable scripts/canvas have complete static presentations.
 
 The page title is Axis by Alvis Choi. Transparent 64px logo favicons switch immediately between Figma Indigo #1C367C in light appearance and white in dark appearance.
 

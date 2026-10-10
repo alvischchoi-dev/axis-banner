@@ -1,3 +1,5 @@
+import { restingFieldColor } from './color.js?revision=de2b55ccf165';
+
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
 export const MIN_HERO_HEIGHT = 360;
@@ -46,7 +48,7 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
   const fits = TITLE_PHRASES.every(text => titleMeasure(text, horizontalFont) <= half + .1);
   let mode = width >= 768 && width / heroHeight >= 4 / 3 && fits
     && horizontalClearance >= haloAt(heroHeight) + 24 ? 'horizontal' : 'vertical';
-  let titleSize, copySize, startHeight, endHeight, descriptionHeight, logoWidth;
+  let titleSize, copySize, startHeight, endHeight, descriptionHeight, logoWidth, copyWidth;
   // Enlarged text can extend the hero, retaining the fixed 49% center.
   for (let pass = 0; pass < 5; pass++) {
     titleSize = mode === 'horizontal' ? horizontalFont : verticalFont;
@@ -58,12 +60,13 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
     const phraseHeight = index => (mode === 'horizontal' ? [TITLE_PHRASES[index]] : VERTICAL_LINES[index])
       .reduce((lines, text) => lines + wrappedLines(text, mode === 'horizontal' ? half : usable, value => titleMeasure(value, titleSize)), 0) * titleSize;
     startHeight = phraseHeight(0); endHeight = phraseHeight(1);
-    const copyWidth = mode === 'horizontal' ? Math.min(usable, width * .3625) : Math.min(usable * 2 / 3, 560);
-    // Larger portrait layouts retain the two complete subtitle phrases.
-    // Phone copy keeps its natural wrap inside the two-thirds-width block.
-    const copyLines = mode === 'horizontal' || width >= 768
-      ? COPY.reduce((sum, text) => sum + wrappedLines(text, copyWidth, value => copyMeasure(value, copySize)), 0)
-      : wrappedLines(COPY.join(' '), copyWidth, value => copyMeasure(value, copySize));
+    // Preserve complete phrases at the approved type size. Small screens
+    // and enlarged text wrap naturally rather than shrinking the type.
+    const phraseWidth = Math.max(...COPY.map(text => copyMeasure(text, copySize))) + 2;
+    copyWidth = mode === 'horizontal' ? Math.min(usable, width * .3625)
+      : Math.min(usable, Math.max(Math.min(usable * 2 / 3, 560), phraseWidth));
+    const copyLines = COPY.reduce((sum, text) => sum
+      + wrappedLines(text, copyWidth, value => copyMeasure(value, copySize)), 0);
     descriptionHeight = copyLines * copySize * subtitleTypeScale.lineHeight;
     const titleAbove = mode === 'horizontal' ? Math.max(startHeight, endHeight) / 2 : haloAt(heroHeight) + titleGap + startHeight;
     const titleBelow = mode === 'horizontal' ? Math.max(startHeight, endHeight) / 2 : haloAt(heroHeight) + titleGap + endHeight;
@@ -82,9 +85,12 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
   return {
     mode, width, height: heroHeight, viewportHeight: height, short, padding, left, right, top, bottom,
     gutter, column, titleSize, copySize, logoWidth, startHeight, endHeight, descriptionHeight, titleGap, descriptionTop,
-    descriptionWidth: mode === 'horizontal' ? Math.min(usable, width * .3625) : Math.min(usable * 2 / 3, 560),
+    descriptionWidth: copyWidth,
     centerX: width * .5, centerY: heroHeight * .49, scale, coreRadius,
-    referenceExtent: Math.min(heroHeight, width * 9 / 16),
+    // Blend away from the desktop 16:9 footprint as the viewport becomes
+    // portrait. One uniform extent preserves the original dome curves.
+    referenceExtent: Math.min(heroHeight, width * 9 / 16)
+      * (mode === 'vertical' ? 1 + .5 * clamp(0, (4 / 3 - width / heroHeight) * 3, 1) : 1),
     outerRadius: Math.hypot(width / shorter, heroHeight / shorter) * 2.12,
     titleStartTop, titleEndTop,
   };
@@ -155,6 +161,18 @@ function startLayout() {
       'copy-width': layout.descriptionWidth, 'title-start-top': layout.titleStartTop,
       'title-end-top': layout.titleEndTop, 'copy-midpoint': layout.descriptionTop + layout.descriptionHeight / 2, 'reference-extent': layout.referenceExtent };
     for (const [key, value] of Object.entries(values)) artwork.style.setProperty(`--${key}`, `${value}px`);
+    // Paint the underlying page, including overscroll and Safari's sampled
+    // chrome, without reading back the animated canvas on every frame.
+    const edge = y => {
+      const sampled = restingFieldColor(layout.centerX, y, layout.width, layout.height, 0, layout.referenceExtent);
+      const floor = [18, 35, 78];
+      return layout.mode === 'vertical' ? sampled.map((value, i) => Math.max(value, floor[i])) : [3, 5, 11];
+    };
+    const topEdge = edge(0), bottomEdge = edge(layout.height);
+    document.documentElement.style.setProperty('--page-edge-top', `rgb(${topEdge.join(',')})`);
+    document.documentElement.style.setProperty('--page-edge-bottom', `rgb(${bottomEdge.join(',')})`);
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.content = `#${topEdge.map(value => value.toString(16).padStart(2, '0')).join('')}`;
     artwork.dataset.layout = layout.mode;
     artwork.dataset.gridColumns = layout.mode === 'horizontal' ? '12' : '4';
     artwork.dataset.layoutSize = `${Math.round(layout.width)}x${layout.height}`;
