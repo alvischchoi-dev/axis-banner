@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=d6dc44b14a08';
+import { restingFieldColor } from './color.js?revision=d91efafe9f6a';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -130,6 +130,8 @@ function startLayout() {
   const viewportProbe = document.createElement('span');
   viewportProbe.className = 'layout-viewport-probe'; viewportProbe.setAttribute('aria-hidden', 'true'); artwork.append(viewportProbe);
   let scheduled = 0;
+  const documentChromeTest = document.documentElement.dataset.chromeTest === 'document';
+  let documentTestPositioned = false;
   const textWidth = (text, size, family, tracking = 0) => {
     if (!paint) return text.length * size * .5;
     paint.font = `400 ${size}px "${family}", sans-serif`;
@@ -170,6 +172,19 @@ function startLayout() {
       measureCopy: (text, size) => textWidth(text, size, 'Neue Montreal'),
     });
     Object.assign(layout, drawingBounds(layout, viewportProbe.getBoundingClientRect().height, safe));
+    if (documentChromeTest) {
+      // Give the native scroll view actual scene pixels above its current origin.
+      const extra = Math.max(240, layout.renderHeight - layout.height);
+      layout.renderHeight = layout.height + extra;
+      layout.drawingBleedTop = extra * .49;
+      layout.drawingBleedBottom = extra * .51;
+      document.documentElement.style.setProperty('--chrome-test-top', `${layout.drawingBleedTop}px`);
+      document.documentElement.style.setProperty('--chrome-test-bottom', `${layout.drawingBleedBottom}px`);
+      if (!documentTestPositioned) {
+        documentTestPositioned = true;
+        requestAnimationFrame(() => window.scrollTo({ top: layout.drawingBleedTop, behavior: 'instant' }));
+      }
+    }
     const values = { 'drawing-bleed-top': layout.drawingBleedTop, 'drawing-bleed-bottom': layout.drawingBleedBottom, 'hero-min-height': layout.height, 'guide-left': layout.left, 'guide-right': layout.right,
       'guide-top': layout.top, 'guide-bottom': layout.bottom, 'grid-gutter': layout.gutter,
       'headline-size': layout.titleSize, 'copy-size': layout.copySize, 'logo-width': layout.logoWidth,

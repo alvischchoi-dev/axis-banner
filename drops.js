@@ -1,4 +1,4 @@
-import { PAIR_GRAVITY, advancePairBodies } from './coupling.js?revision=d6dc44b14a08';
+import { PAIR_GRAVITY, advancePairBodies } from './coupling.js?revision=d91efafe9f6a';
 
 
 const clamp = value => Math.max(0, Math.min(1, value));
