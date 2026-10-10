@@ -1,6 +1,6 @@
-import { MODEL } from './physics.js?revision=de2b55ccf165';
-import { responseKernel, settleNode } from './inertia.js?revision=de2b55ccf165';
-import { resolveSettings, reactionRate } from './settings.js?revision=de2b55ccf165';
+import { MODEL } from './physics.js?revision=2517ad9ee71f';
+import { responseKernel, settleNode } from './inertia.js?revision=2517ad9ee71f';
+import { resolveSettings, reactionRate } from './settings.js?revision=2517ad9ee71f';
 
 // Keep the local well close to the pointer, then let the filaments carry a
 // shorter stagger and their own damped velocity. These delays must not stack

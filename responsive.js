@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=de2b55ccf165';
+import { restingFieldColor } from './color.js?revision=2517ad9ee71f';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
