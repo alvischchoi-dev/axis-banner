@@ -1,20 +1,20 @@
-import { MODEL, seededRandom } from './physics.js?revision=a0fba0e7e0bd';
-import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=a0fba0e7e0bd';
-import { buildTrajectory, pointAtTime } from './trajectories.js?revision=a0fba0e7e0bd';
-import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=a0fba0e7e0bd';
-import { streakHead, streakPhase } from './streaks.js?revision=a0fba0e7e0bd';
-import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=a0fba0e7e0bd';
-import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=a0fba0e7e0bd';
-import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=a0fba0e7e0bd';
+import { MODEL, seededRandom } from './physics.js?revision=80ae4cce24f1';
+import { GravityFocus, CURSOR_RESPONSE } from './interaction.js?revision=80ae4cce24f1';
+import { buildTrajectory, pointAtTime } from './trajectories.js?revision=80ae4cce24f1';
+import { filamentResponse, settleFilamentNode } from './relaxation.js?revision=80ae4cce24f1';
+import { streakHead, streakPhase } from './streaks.js?revision=80ae4cce24f1';
+import { DEFAULT_SETTINGS, DEFAULT_TEMPO, SETTINGS_KEY, MAX_RAYS, resolveSettings } from './settings.js?revision=80ae4cce24f1';
+import { BACKGROUND_GRAIN, ColorExposure, createColorField, cursorColorRadius } from './color.js?revision=80ae4cce24f1';
+import { LightDrops, lightFieldsForRay, projectLightFields, dropAppearance, coreProximityScale } from './drops.js?revision=80ae4cce24f1';
 
-import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime, visibleEndTime } from './curves.js?revision=a0fba0e7e0bd';
-import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=a0fba0e7e0bd';
-import { PlacementResponse } from './placement.js?revision=a0fba0e7e0bd';
-import { observeLayout, bufferDimensions } from './responsive.js?revision=a0fba0e7e0bd';
-import { rebaseRay, rebaseFocus } from './rebase.js?revision=a0fba0e7e0bd';
-import { TapGesture } from './input.js?revision=a0fba0e7e0bd';
-import { RenderQuality } from './quality.js?revision=a0fba0e7e0bd';
-import { supportBounds } from './support.js?revision=a0fba0e7e0bd';
+import { resampleTrajectory, cubicSegments, cubicPoint, trimmedCubic, segmentAtTime, visibleEndTime } from './curves.js?revision=80ae4cce24f1';
+import { paintOrb, warmOrbTextures, breathingScale, resolveOrb, resolveOrbCycle, nextOrb, ORB_SETS, ORB_KEY, ORB_SELECTION_KEY, ORB_PERIOD, ORB_BREATH_PERIOD, ORB_BREATH_AMOUNT, ORB_GLOW_BREATH_AMOUNT, CORE_BREATH_AMOUNT, ORB_PROTOTYPE } from './orbs.js?revision=80ae4cce24f1';
+import { PlacementResponse } from './placement.js?revision=80ae4cce24f1';
+import { observeLayout, bufferDimensions } from './responsive.js?revision=80ae4cce24f1';
+import { rebaseRay, rebaseFocus } from './rebase.js?revision=80ae4cce24f1';
+import { TapGesture } from './input.js?revision=80ae4cce24f1';
+import { RenderQuality } from './quality.js?revision=80ae4cce24f1';
+import { supportBounds } from './support.js?revision=80ae4cce24f1';
 
 const canvas = document.querySelector('#field');
 const ctx = canvas.getContext('2d', { alpha: false });

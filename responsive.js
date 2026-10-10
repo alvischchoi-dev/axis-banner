@@ -4,6 +4,7 @@ export const MIN_HERO_HEIGHT = 360;
 export const MAX_BUFFER_PIXELS = 6_000_000;
 export const TITLE_PHRASES = ['A New Center of', 'Financial Gravity'];
 // Headless defaults; the browser reads the named type tokens from style.css.
+export const TITLE_TYPE_SCALE = Object.freeze({ portraitMin: 2.25, portraitBase: 1.125, portraitFluid: .05625, portraitMax: 5 });
 export const SUBTITLE_TYPE_SCALE = Object.freeze({ mobileMin: 1.125, portraitMax: 1.25, desktopMin: 1, desktopMax: 1.875, lineHeight: 1.2 });
 const VERTICAL_LINES = [['A New', 'Center of'], ['Financial', 'Gravity']];
 const COPY = ['Axis is the decentralized force pulling', 'the future of investing into focus.'];
@@ -24,7 +25,7 @@ export function wrappedLines(text, available, measure) {
   return lines;
 }
 
-export function resolveLayout({ width, height, rootSize = 16, safe = {}, measureTitle, measureCopy, logoAspect = 2.519, contactHeight = 0, subtitleTypeScale = SUBTITLE_TYPE_SCALE }) {
+export function resolveLayout({ width, height, rootSize = 16, safe = {}, measureTitle, measureCopy, logoAspect = 2.519, contactHeight = 0, titleTypeScale = TITLE_TYPE_SCALE, subtitleTypeScale = SUBTITLE_TYPE_SCALE }) {
   width = Math.max(1, width); height = Math.max(1, height);
   const short = height < 500;
   const padding = Math.min(short ? 24 : 96, Math.max(20, width * .0375));
@@ -34,7 +35,8 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
   const column = Math.max(1, (usable - 11 * gutter) / 12), half = 5 * column + 4 * gutter;
   const textScale = rootSize / 16;
   const horizontalFont = Math.min(short ? 3 * rootSize : Infinity, clamp(2.25 * rootSize, width * 94 / 1920 * textScale, 7.25 * rootSize));
-  const verticalFont = Math.min(short ? 3 * rootSize : Infinity, clamp(1.875 * rootSize, .875 * rootSize + width * .05 * textScale, 5 * rootSize));
+  const verticalFont = Math.min(short ? 3 * rootSize : Infinity, clamp(titleTypeScale.portraitMin * rootSize,
+    titleTypeScale.portraitBase * rootSize + width * titleTypeScale.portraitFluid * textScale, titleTypeScale.portraitMax * rootSize));
   const titleMeasure = (text, size) => measureTitle ? measureTitle(text, size) : text.length * size * .47;
   const copyMeasure = (text, size) => measureCopy ? measureCopy(text, size) : text.length * size * .49;
   const haloAt = h => Math.max(12, Math.min(width, h) * .06) * 1.08;
@@ -122,6 +124,15 @@ function startLayout() {
       if (!Number.isFinite(value) || value <= 0) return fallback;
       return token.endsWith('rem') ? value : token.endsWith('px') ? value / rootSize : fallback;
     };
+    const titleFluidToken = styles.getPropertyValue('--type-headline-portrait-fluid').trim();
+    const titleFluidValue = parseFloat(titleFluidToken);
+    const titleTypeScale = {
+      portraitMin: typeRatio('--type-headline-portrait-min', TITLE_TYPE_SCALE.portraitMin),
+      portraitBase: typeRatio('--type-headline-portrait-base', TITLE_TYPE_SCALE.portraitBase),
+      portraitFluid: titleFluidToken.endsWith('cqw') && Number.isFinite(titleFluidValue) && titleFluidValue > 0
+        ? titleFluidValue / 100 : TITLE_TYPE_SCALE.portraitFluid,
+      portraitMax: typeRatio('--type-headline-portrait-max', TITLE_TYPE_SCALE.portraitMax),
+    };
     const subtitleTypeScale = {
       mobileMin: typeRatio('--type-subtitle-mobile', SUBTITLE_TYPE_SCALE.mobileMin),
       portraitMax: typeRatio('--type-subtitle-portrait-max', SUBTITLE_TYPE_SCALE.portraitMax),
@@ -130,7 +141,7 @@ function startLayout() {
       lineHeight: parseFloat(styles.getPropertyValue('--type-subtitle-line-height')) || SUBTITLE_TYPE_SCALE.lineHeight,
     };
     const layout = resolveLayout({ width: bounds.width, height: window.innerHeight,
-      rootSize, safe, subtitleTypeScale,
+      rootSize, safe, titleTypeScale, subtitleTypeScale,
       logoAspect: logo.naturalWidth && logo.naturalHeight ? logo.naturalWidth / logo.naturalHeight : 2.519,
       contactHeight: contact?.getBoundingClientRect().height || 0,
       measureTitle: (text, size) => textWidth(text, size, 'PP Fragment Sans', -.03),
