@@ -138,6 +138,13 @@ body.banner-presentation .artwork {
 .artwork[data-layout="vertical"] .title-break { display: initial; }
 .artwork[data-layout="vertical"] .banner-description { top: var(--copy-midpoint); bottom: auto; left: 50%; transform: translate(-50%, -50%); width: var(--copy-width, var(--vertical-copy-width)); text-align: center; font-size: var(--copy-size, var(--type-subtitle-mobile)); }
 .artwork[data-layout="vertical"] .banner-description > span { display: inline; }
+/* Balance the iPad subtitle without changing its type scale or block width. */
+@media (min-width: 768px) {
+  .artwork[data-layout="vertical"] .banner-description > span { display: block; }
+}
+@media (min-width: 768px) and (max-aspect-ratio: 4/3) {
+  .artwork:not([data-layout]) .banner-description > span { display: block; }
+}
 @media (max-height: 499px) {
   body.banner-presentation .artwork { --headline-size: clamp(1.875rem, 4.8958333cqw, 3rem); --copy-size: var(--type-subtitle-desktop-min); --logo-width: clamp(84px, 6.6666667cqw, 96px); --guide-left: clamp(20px, 3.75cqw, 24px); --guide-right: clamp(20px, 3.75cqw, 24px); --guide-top: 20px; --guide-bottom: 24px; }
 }

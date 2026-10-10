@@ -59,7 +59,9 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
       .reduce((lines, text) => lines + wrappedLines(text, mode === 'horizontal' ? half : usable, value => titleMeasure(value, titleSize)), 0) * titleSize;
     startHeight = phraseHeight(0); endHeight = phraseHeight(1);
     const copyWidth = mode === 'horizontal' ? Math.min(usable, width * .3625) : Math.min(usable * 2 / 3, 560);
-    const copyLines = mode === 'horizontal'
+    // Larger portrait layouts retain the two complete subtitle phrases.
+    // Phone copy keeps its natural wrap inside the two-thirds-width block.
+    const copyLines = mode === 'horizontal' || width >= 768
       ? COPY.reduce((sum, text) => sum + wrappedLines(text, copyWidth, value => copyMeasure(value, copySize)), 0)
       : wrappedLines(COPY.join(' '), copyWidth, value => copyMeasure(value, copySize));
     descriptionHeight = copyLines * copySize * subtitleTypeScale.lineHeight;
