@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=832142f3585a';
+import { restingFieldColor } from './color.js?revision=92b920757911';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -141,6 +141,27 @@ function startLayout() {
   viewportProbe.className = 'layout-viewport-probe'; viewportProbe.setAttribute('aria-hidden', 'true'); artwork.append(viewportProbe);
   let scheduled = 0;
   const documentChromeTest = document.documentElement.dataset.chromeTest === 'document';
+  // Safari only reveals document pixels behind the clock after scrolling.
+  // Reserve an actual painted lead-in, and compensate its document offset
+  // after layout has committed; never shift the composition's own guides.
+  const leadIn = documentChromeTest ? 96 : 0;
+  let userInteracted = false;
+  const initialSettleUntil = performance.now() + 1800;
+  const alignInitialOrigin = () => {
+    if (!leadIn || userInteracted || performance.now() > initialSettleUntil) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!userInteracted && performance.now() <= initialSettleUntil)
+        window.scrollTo({ top: leadIn, behavior: 'instant' });
+    }));
+  };
+  if (leadIn) {
+    document.documentElement.style.setProperty('--scene-lead-in', `${leadIn}px`);
+    for (const name of ['touchstart', 'pointerdown', 'wheel', 'keydown'])
+      window.addEventListener(name, () => { userInteracted = true; }, { passive: true, once: true });
+    window.addEventListener('pageshow', alignInitialOrigin, { once: true });
+    document.fonts?.ready.then(alignInitialOrigin);
+    for (const delay of [100, 350, 800, 1400]) setTimeout(alignInitialOrigin, delay);
+  }
   const textWidth = (text, size, family, tracking = 0) => {
     if (!paint) return text.length * size * .5;
     paint.font = `400 ${size}px "${family}", sans-serif`;
@@ -183,6 +204,12 @@ function startLayout() {
       measureCopy: (text, size) => textWidth(text, size, 'Neue Montreal'),
     });
     Object.assign(layout, drawingBounds(layout, viewportProbe.getBoundingClientRect().height, safe));
+    if (leadIn && layout.drawingBleedTop < leadIn) {
+      const extension = leadIn / .49;
+      layout.renderHeight = layout.height + extension;
+      layout.drawingBleedTop = leadIn;
+      layout.drawingBleedBottom = extension - leadIn;
+    }
     const values = { 'drawing-bleed-top': layout.drawingBleedTop, 'drawing-bleed-bottom': layout.drawingBleedBottom, 'hero-min-height': layout.height, 'guide-left': layout.left, 'guide-right': layout.right,
       'guide-top': layout.top, 'guide-bottom': layout.bottom, 'grid-gutter': layout.gutter,
       'headline-size': layout.titleSize, 'copy-size': layout.copySize, 'logo-width': layout.logoWidth,
@@ -209,6 +236,7 @@ function startLayout() {
     const changed = !current || Object.keys(layout).some(key => current[key] !== layout[key]);
     current = layout;
     if (changed) for (const listener of subscribers) listener(layout);
+    alignInitialOrigin();
   }
   const schedule = () => { if (!scheduled) scheduled = requestAnimationFrame(measure); };
   new ResizeObserver(schedule).observe(artwork);
