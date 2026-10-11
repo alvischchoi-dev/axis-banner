@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=92b920757911';
+import { restingFieldColor } from './color.js?revision=9d2831f3e89e';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -156,6 +156,23 @@ function startLayout() {
   };
   if (leadIn) {
     document.documentElement.style.setProperty('--scene-lead-in', `${leadIn}px`);
+    const unzoomed = () => Math.abs((window.visualViewport?.scale ?? 1) - 1) < .01;
+    const locked = () => document.documentElement.dataset.sceneLocked === 'true' && unzoomed();
+    // Keep Safari's positive document origin, but remove its spare scroll range
+    // from gestures. Zoomed and enlarged-content layouts retain native panning.
+    window.addEventListener('wheel', event => {
+      if (locked() && !event.ctrlKey) event.preventDefault();
+    }, { passive: false });
+    window.addEventListener('keydown', event => {
+      if (locked() && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)
+          && !event.target?.closest?.('input, textarea, select, [contenteditable]')) event.preventDefault();
+    });
+    window.addEventListener('scroll', () => {
+      if (!current || !unzoomed()) return;
+      const extraContent = Math.max(0, current.height - usableViewportHeight(innerHeight, visualViewport));
+      const target = clamp(leadIn, scrollY, leadIn + extraContent);
+      if (Math.abs(scrollY - target) > .5) window.scrollTo({ top: target, behavior: 'instant' });
+    }, { passive: true });
     for (const name of ['touchstart', 'pointerdown', 'wheel', 'keydown'])
       window.addEventListener(name, () => { userInteracted = true; }, { passive: true, once: true });
     window.addEventListener('pageshow', alignInitialOrigin, { once: true });
@@ -235,6 +252,8 @@ function startLayout() {
     artwork.dataset.viewportWidth = String(layout.width);
     const changed = !current || Object.keys(layout).some(key => current[key] !== layout[key]);
     current = layout;
+    if (leadIn) document.documentElement.dataset.sceneLocked = String(layout.height <= layout.viewportHeight + 1
+      && Math.abs((window.visualViewport?.scale ?? 1) - 1) < .01);
     if (changed) for (const listener of subscribers) listener(layout);
     alignInitialOrigin();
   }
