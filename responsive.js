@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=1402a91855db';
+import { restingFieldColor } from './color.js?revision=3115e65a740e';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -11,6 +11,13 @@ export const SUBTITLE_TYPE_SCALE = Object.freeze({ mobileMin: 1.125, portraitMax
 const VERTICAL_LINES = [['A New', 'Center of'], ['Financial', 'Gravity']];
 const COPY = ['Axis is the decentralized force pulling', 'the future of investing into focus.'];
 const clamp = (low, value, high) => Math.max(low, Math.min(value, high));
+
+// Browser controls can reduce the visible viewport; pinch zoom must not
+// rearrange the document's composition.
+export function usableViewportHeight(innerHeight, viewport) {
+  return viewport && Math.abs((viewport.scale ?? 1) - 1) < .01
+    ? Math.min(innerHeight, viewport.height) : innerHeight;
+}
 
 export function bufferDimensions(width, height, deviceRatio = 1, qualityCap = 1.5) {
   const ratio = Math.min(deviceRatio || 1, 1.5, qualityCap, Math.sqrt(MAX_BUFFER_PIXELS / (width * height)));
@@ -131,7 +138,6 @@ function startLayout() {
   viewportProbe.className = 'layout-viewport-probe'; viewportProbe.setAttribute('aria-hidden', 'true'); artwork.append(viewportProbe);
   let scheduled = 0;
   const documentChromeTest = document.documentElement.dataset.chromeTest === 'document';
-  let documentTestPositioned = false;
   const textWidth = (text, size, family, tracking = 0) => {
     if (!paint) return text.length * size * .5;
     paint.font = `400 ${size}px "${family}", sans-serif`;
@@ -142,6 +148,7 @@ function startLayout() {
     const bounds = artwork.getBoundingClientRect(), styles = getComputedStyle(artwork);
     const safe = {};
     for (const side of ['left', 'right', 'top', 'bottom']) safe[side] = parseFloat(styles.getPropertyValue(`--safe-${side}`)) || 0;
+    if (documentChromeTest) safe.bottom = Math.max(safe.bottom, 72);
     const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const typeRatio = (name, fallback) => {
       const token = styles.getPropertyValue(name).trim(), value = parseFloat(token);
@@ -164,7 +171,8 @@ function startLayout() {
       desktopMax: typeRatio('--type-subtitle-desktop-max', SUBTITLE_TYPE_SCALE.desktopMax),
       lineHeight: parseFloat(styles.getPropertyValue('--type-subtitle-line-height')) || SUBTITLE_TYPE_SCALE.lineHeight,
     };
-    const layout = resolveLayout({ width: bounds.width, height: window.innerHeight,
+    const layout = resolveLayout({ width: bounds.width, height: documentChromeTest
+      ? usableViewportHeight(window.innerHeight, window.visualViewport) : window.innerHeight,
       rootSize, safe, titleTypeScale, subtitleTypeScale,
       logoAspect: logo.naturalWidth && logo.naturalHeight ? logo.naturalWidth / logo.naturalHeight : 2.519,
       contactHeight: contact?.getBoundingClientRect().height || 0,
@@ -172,19 +180,6 @@ function startLayout() {
       measureCopy: (text, size) => textWidth(text, size, 'Neue Montreal'),
     });
     Object.assign(layout, drawingBounds(layout, viewportProbe.getBoundingClientRect().height, safe));
-    if (documentChromeTest) {
-      // Give the native scroll view actual scene pixels above its current origin.
-      const extra = Math.max(240, layout.renderHeight - layout.height);
-      layout.renderHeight = layout.height + extra;
-      layout.drawingBleedTop = extra * .49;
-      layout.drawingBleedBottom = extra * .51;
-      document.documentElement.style.setProperty('--chrome-test-top', `${layout.drawingBleedTop}px`);
-      document.documentElement.style.setProperty('--chrome-test-bottom', `${layout.drawingBleedBottom}px`);
-      if (!documentTestPositioned) {
-        documentTestPositioned = true;
-        requestAnimationFrame(() => window.scrollTo({ top: layout.drawingBleedTop, behavior: 'instant' }));
-      }
-    }
     const values = { 'drawing-bleed-top': layout.drawingBleedTop, 'drawing-bleed-bottom': layout.drawingBleedBottom, 'hero-min-height': layout.height, 'guide-left': layout.left, 'guide-right': layout.right,
       'guide-top': layout.top, 'guide-bottom': layout.bottom, 'grid-gutter': layout.gutter,
       'headline-size': layout.titleSize, 'copy-size': layout.copySize, 'logo-width': layout.logoWidth,
