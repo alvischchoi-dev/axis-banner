@@ -1,4 +1,4 @@
-import { MODEL, advance, potential } from './physics.js?revision=d91efafe9f6a';
+import { MODEL, advance, potential } from './physics.js?revision=1402a91855db';
 
 // Time reversal of an outward trajectory is an inward trajectory in this
 // stationary potential. Zero angular momentum gives the requested straight

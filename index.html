@@ -22,9 +22,13 @@
   </script>
   <script>
     document.documentElement.classList.add('banner-motion', 'title-motion');
-    // Isolated real-device test: do not alter the approved default composition.
-    if (new URLSearchParams(location.search).get('chrome') === 'document') {
+    // Native iOS tabs need real document pixels beyond the visible composition.
+    const iosTab = CSS.supports('-webkit-touch-callout', 'none')
+      && navigator.maxTouchPoints > 0
+      && !matchMedia('(display-mode: standalone)').matches;
+    if (iosTab || new URLSearchParams(location.search).get('chrome') === 'document') {
       document.documentElement.dataset.chromeTest = 'document';
+      document.querySelector('meta[name="theme-color"]')?.remove();
     }
     window.axisRecoverEntrance = () => {
       document.documentElement.classList.remove('banner-motion', 'title-motion');
@@ -37,8 +41,8 @@
       if (event.target?.matches?.('script[type="module"]') || event.target === window) window.axisRecoverEntrance();
     }, true);
   </script>
-  <link rel="stylesheet" href="style.css?revision=d91efafe9f6a">
-  <noscript><style>.title-word {transform:none!important} #field,.banner-logo,.banner-contact,.banner-description,.field-fallback {opacity:1!important} #field{visibility:hidden} .field-fallback{background-image:url("field-fallback-wide.webp?revision=d91efafe9f6a")} @media(max-width:767px),(max-aspect-ratio:4/3){.field-fallback{background-image:url("field-fallback-tall.webp?revision=d91efafe9f6a")}}</style></noscript>
+  <link rel="stylesheet" href="style.css?revision=1402a91855db">
+  <noscript><style>.title-word {transform:none!important} #field,.banner-logo,.banner-contact,.banner-description,.field-fallback {opacity:1!important} #field{visibility:hidden} .field-fallback{background-image:url("field-fallback-wide.webp?revision=1402a91855db")} @media(max-width:767px),(max-aspect-ratio:4/3){.field-fallback{background-image:url("field-fallback-tall.webp?revision=1402a91855db")}}</style></noscript>
 </head>
 <body class="banner-presentation artwork-only">
   <main class="workbench">
@@ -124,8 +128,8 @@
     <button type="button" id="restore-controls" hidden inert aria-label="Show motion study controls">Controls <span aria-hidden="true">↙</span></button>
     <span id="status" class="sr-only" role="status" aria-live="polite"></span>
   </main>
-  <script type="module" src="responsive.js?revision=d91efafe9f6a"></script>
-  <script type="module" src="field.js?revision=d91efafe9f6a"></script>
-  <script type="module" src="title-reveal.js?revision=d91efafe9f6a"></script>
+  <script type="module" src="responsive.js?revision=1402a91855db"></script>
+  <script type="module" src="field.js?revision=1402a91855db"></script>
+  <script type="module" src="title-reveal.js?revision=1402a91855db"></script>
 </body>
 </html>

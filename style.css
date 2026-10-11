@@ -115,7 +115,7 @@ body.banner-presentation .artwork {
 }
 .layout-rem-probe { position: absolute; width: 1rem; height: 1rem; visibility: hidden; pointer-events: none; }
 .field-fallback { position: absolute; inset: 0; background: #03050b; background-position: 50% 49%; background-size: cover; background-repeat: no-repeat; }
-.artwork[data-renderer="fallback"] .field-fallback { background-image: url("field-fallback-wide.webp?revision=d91efafe9f6a"); }
+.artwork[data-renderer="fallback"] .field-fallback { background-image: url("field-fallback-wide.webp?revision=1402a91855db"); }
 .artwork[data-renderer="ready"] .field-fallback { visibility: hidden; }
 .artwork[data-renderer="fallback"] .field-fallback { opacity: 1; }
 .artwork[data-renderer="fallback"] #field { visibility: hidden; }
@@ -129,7 +129,7 @@ body.banner-presentation .artwork {
   .artwork:not([data-layout="horizontal"]) .title-break { display: initial; }
   .artwork:not([data-layout="horizontal"]) .banner-description { top: var(--copy-midpoint, calc(74.5% + (clamp(12px, 6.48cqw, 64px) + clamp(2.25rem, 11.25cqw, 4rem) + 2 * var(--headline-size, var(--type-headline-portrait-size)) - var(--guide-bottom, clamp(20px, 3.75cqw, 96px))) / 2)); bottom: auto; left: 50%; transform: translate(-50%, -50%); width: var(--copy-width, var(--vertical-copy-width)); text-align: center; font-size: var(--copy-size, var(--type-subtitle-mobile)); }
   .artwork:not([data-layout="horizontal"]) .banner-description > span { display: block; }
-  .artwork[data-renderer="fallback"] .field-fallback { background-image: url("field-fallback-tall.webp?revision=d91efafe9f6a"); }
+  .artwork[data-renderer="fallback"] .field-fallback { background-image: url("field-fallback-tall.webp?revision=1402a91855db"); }
 }
 .artwork[data-layout="vertical"] .banner-title { top: 0; bottom: 0; transform: none; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .artwork[data-layout="vertical"] .banner-title > span { position: absolute; left: 0; right: 0; grid-column: 1 / -1; text-align: center; }
@@ -160,7 +160,7 @@ body.banner-presentation :is(.controls, #restore-controls, #tuning, #notes) { di
 body.banner-presentation #field { position: absolute; left: 0; top: calc(0px - var(--drawing-bleed-top, 0px)); width: 100%; height: calc(100% + var(--drawing-bleed-top, 0px) + var(--drawing-bleed-bottom, 0px)); }
 body.banner-presentation .field-fallback { top: calc(0px - var(--drawing-bleed-top, 0px)); bottom: calc(0px - var(--drawing-bleed-bottom, 0px)); }
 
-/* Device test only: paint into positive document space, with content on both
+/* Native iOS document mode: paint into positive document space, with content on both
    sides of the viewport rather than outside the document's scroll origin. */
 html[data-chrome-test="document"] .workbench {
   padding-top: var(--chrome-test-top, 120px);
@@ -168,4 +168,5 @@ html[data-chrome-test="document"] .workbench {
 }
 html[data-chrome-test="document"] { scroll-behavior: auto; }
 html[data-chrome-test="document"],
-html[data-chrome-test="document"] body { background-image: none; }
+html[data-chrome-test="document"] body { background: transparent; }
+html[data-chrome-test="document"] body.banner-presentation .artwork { background: transparent; }
