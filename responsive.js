@@ -1,4 +1,4 @@
-import { restingFieldColor } from './color.js?revision=3115e65a740e';
+import { restingFieldColor } from './color.js?revision=832142f3585a';
 
 // A single measured composition feeds both the overlay and the field.
 // Font measurements, rather than a device name, decide when the title fits.
@@ -8,6 +8,7 @@ export const TITLE_PHRASES = ['A New Center of', 'Financial Gravity'];
 // Headless defaults; the browser reads the named type tokens from style.css.
 export const TITLE_TYPE_SCALE = Object.freeze({ portraitMin: 2.25, portraitBase: 1.125, portraitFluid: .05625, portraitMax: 5 });
 export const SUBTITLE_TYPE_SCALE = Object.freeze({ mobileMin: 1.125, portraitMax: 1.25, desktopMin: 1, desktopMax: 1.875, lineHeight: 1.2 });
+export const SUBTITLE_GRID = Object.freeze({ portraitWidth: 2 / 3, portraitGap: 4, horizontalGap: 1 });
 const VERTICAL_LINES = [['A New', 'Center of'], ['Financial', 'Gravity']];
 const COPY = ['Axis is the decentralized force pulling', 'the future of investing into focus.'];
 const clamp = (low, value, high) => Math.max(low, Math.min(value, high));
@@ -71,7 +72,7 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
     // and enlarged text wrap naturally rather than shrinking the type.
     const phraseWidth = Math.max(...COPY.map(text => copyMeasure(text, copySize))) + 2;
     copyWidth = mode === 'horizontal' ? Math.min(usable, width * .3625)
-      : Math.min(usable, Math.max(Math.min(usable * 2 / 3, 560), phraseWidth));
+      : Math.min(usable, Math.max(Math.min(usable * SUBTITLE_GRID.portraitWidth, 560), phraseWidth));
     const copyLines = COPY.reduce((sum, text) => sum
       + wrappedLines(text, copyWidth, value => copyMeasure(value, copySize)), 0);
     descriptionHeight = copyLines * copySize * subtitleTypeScale.lineHeight;
@@ -79,7 +80,7 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
     const titleBelow = mode === 'horizontal' ? Math.max(startHeight, endHeight) / 2 : haloAt(heroHeight) + titleGap + endHeight;
     heroHeight = Math.max(heroHeight,
       (top + Math.max(logoWidth / logoAspect, contactHeight) + 16 + titleAbove) / .49,
-      (bottom + descriptionHeight + (mode === 'vertical' ? 32 : 16) + titleBelow) / .51);
+      (bottom + descriptionHeight + (mode === 'vertical' ? SUBTITLE_GRID.portraitGap : SUBTITLE_GRID.horizontalGap) * rootSize + titleBelow) / .51);
     if (mode === 'horizontal' && (width / heroHeight < 4 / 3 || horizontalClearance < haloAt(heroHeight) + 24)) mode = 'vertical';
   }
   heroHeight = Math.ceil(heroHeight);
@@ -87,12 +88,14 @@ export function resolveLayout({ width, height, rootSize = 16, safe = {}, measure
   const titleStartTop = heroHeight * .49 - coreRadius * 1.08 - titleGap - startHeight;
   const titleEndTop = heroHeight * .49 + coreRadius * 1.08 + titleGap;
   const descriptionTop = mode === 'vertical'
-    ? (titleEndTop + endHeight + heroHeight - bottom - descriptionHeight) / 2
+    ? Math.max(titleEndTop + endHeight + SUBTITLE_GRID.portraitGap * rootSize,
+      (titleEndTop + endHeight + heroHeight - bottom - descriptionHeight) / 2)
     : heroHeight - bottom - descriptionHeight;
   return {
     mode, width, height: heroHeight, viewportHeight: height, short, padding, left, right, top, bottom,
     gutter, column, titleSize, copySize, logoWidth, startHeight, endHeight, descriptionHeight, titleGap, descriptionTop,
     descriptionWidth: copyWidth,
+    subtitleClearance: mode === 'vertical' ? SUBTITLE_GRID.portraitGap * rootSize : SUBTITLE_GRID.horizontalGap * rootSize,
     centerX: width * .5, centerY: heroHeight * .49, scale, coreRadius,
     // Blend away from the desktop 16:9 footprint as the viewport becomes
     // portrait. One uniform extent preserves the original dome curves.
